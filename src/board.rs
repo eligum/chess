@@ -1,13 +1,19 @@
 use std::fmt;
 
 #[derive(Clone, Copy, Debug)]
+pub enum PieceColor {
+    White,
+    Black,
+}
+
+#[derive(Clone, Copy, Debug)]
 pub enum Piece {
-    Pawn,
-    Knight,
-    Bishop,
-    Rook,
-    Queen,
-    King,
+    Pawn(PieceColor),
+    Knight(PieceColor),
+    Bishop(PieceColor),
+    Rook(PieceColor),
+    Queen(PieceColor),
+    King(PieceColor),
 }
 
 pub struct Board {
@@ -22,48 +28,48 @@ impl Board {
         Board {
             squares: [
                 [
-                    Some(Piece::Rook),
-                    Some(Piece::Knight),
-                    Some(Piece::Bishop),
-                    Some(Piece::Queen),
-                    Some(Piece::King),
-                    Some(Piece::Bishop),
-                    Some(Piece::Knight),
-                    Some(Piece::Rook),
+                    Some(Piece::Rook(PieceColor::Black)),
+                    Some(Piece::Knight(PieceColor::Black)),
+                    Some(Piece::Bishop(PieceColor::Black)),
+                    Some(Piece::Queen(PieceColor::Black)),
+                    Some(Piece::King(PieceColor::Black)),
+                    Some(Piece::Bishop(PieceColor::Black)),
+                    Some(Piece::Knight(PieceColor::Black)),
+                    Some(Piece::Rook(PieceColor::Black)),
                 ],
                 [
-                    Some(Piece::Pawn),
-                    Some(Piece::Pawn),
-                    Some(Piece::Pawn),
-                    Some(Piece::Pawn),
-                    Some(Piece::Pawn),
-                    Some(Piece::Pawn),
-                    Some(Piece::Pawn),
-                    Some(Piece::Pawn),
+                    Some(Piece::Pawn(PieceColor::Black)),
+                    Some(Piece::Pawn(PieceColor::Black)),
+                    Some(Piece::Pawn(PieceColor::Black)),
+                    Some(Piece::Pawn(PieceColor::Black)),
+                    Some(Piece::Pawn(PieceColor::Black)),
+                    Some(Piece::Pawn(PieceColor::Black)),
+                    Some(Piece::Pawn(PieceColor::Black)),
+                    Some(Piece::Pawn(PieceColor::Black)),
                 ],
                 [None, None, None, None, None, None, None, None],
                 [None, None, None, None, None, None, None, None],
                 [None, None, None, None, None, None, None, None],
                 [None, None, None, None, None, None, None, None],
                 [
-                    Some(Piece::Pawn),
-                    Some(Piece::Pawn),
-                    Some(Piece::Pawn),
-                    Some(Piece::Pawn),
-                    Some(Piece::Pawn),
-                    Some(Piece::Pawn),
-                    Some(Piece::Pawn),
-                    Some(Piece::Pawn),
+                    Some(Piece::Pawn(PieceColor::White)),
+                    Some(Piece::Pawn(PieceColor::White)),
+                    Some(Piece::Pawn(PieceColor::White)),
+                    Some(Piece::Pawn(PieceColor::White)),
+                    Some(Piece::Pawn(PieceColor::White)),
+                    Some(Piece::Pawn(PieceColor::White)),
+                    Some(Piece::Pawn(PieceColor::White)),
+                    Some(Piece::Pawn(PieceColor::White)),
                 ],
                 [
-                    Some(Piece::Rook),
-                    Some(Piece::Knight),
-                    Some(Piece::Bishop),
-                    Some(Piece::Queen),
-                    Some(Piece::King),
-                    Some(Piece::Bishop),
-                    Some(Piece::Knight),
-                    Some(Piece::Rook),
+                    Some(Piece::Rook(PieceColor::White)),
+                    Some(Piece::Knight(PieceColor::White)),
+                    Some(Piece::Bishop(PieceColor::White)),
+                    Some(Piece::Queen(PieceColor::White)),
+                    Some(Piece::King(PieceColor::White)),
+                    Some(Piece::Bishop(PieceColor::White)),
+                    Some(Piece::Knight(PieceColor::White)),
+                    Some(Piece::Rook(PieceColor::White)),
                 ],
             ],
         }
@@ -88,12 +94,30 @@ impl Board {
 impl fmt::Display for Piece {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Piece::Pawn => write!(f, "P"),
-            Piece::Knight => write!(f, "N"),
-            Piece::Bishop => write!(f, "B"),
-            Piece::Rook => write!(f, "R"),
-            Piece::Queen => write!(f, "Q"),
-            Piece::King => write!(f, "K"),
+            Piece::Pawn(color) => match color {
+                PieceColor::White => write!(f, "wP"),
+                PieceColor::Black => write!(f, "bP"),
+            },
+            Piece::Knight(color) => match color {
+                PieceColor::White => write!(f, "wN"),
+                PieceColor::Black => write!(f, "bN"),
+            },
+            Piece::Bishop(color) => match color {
+                PieceColor::White => write!(f, "wB"),
+                PieceColor::Black => write!(f, "bB"),
+            },
+            Piece::Rook(color) => match color {
+                PieceColor::White => write!(f, "wR"),
+                PieceColor::Black => write!(f, "bR"),
+            },
+            Piece::Queen(color) => match color {
+                PieceColor::White => write!(f, "wQ"),
+                PieceColor::Black => write!(f, "bQ"),
+            },
+            Piece::King(color) => match color {
+                PieceColor::White => write!(f, "wK"),
+                PieceColor::Black => write!(f, "bK"),
+            }
         }
     }
 }
@@ -105,7 +129,7 @@ impl fmt::Display for Board {
                 if let Some(piece) = self.squares[i][j] {
                     write!(f, "{} ", piece)?;
                 } else {
-                    write!(f, ". ")?;
+                    write!(f, " . ")?;
                 }
             }
             write!(f, "\n")?;
