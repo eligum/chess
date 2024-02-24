@@ -24,8 +24,8 @@ pub struct Position {
 }
 
 pub enum Move {
-    GoTo { row: u8, col: u8 },
-    Take { row: u8, col: u8 },
+    GoTo(Position),
+    Take(Position),
 }
 
 pub struct Board {
@@ -45,11 +45,11 @@ impl Piece {
     }
 
     #[rustfmt::skip]
-    pub fn get_possible_moves(self, board: &Board, coords: (i32, i32)) -> Vec<Move> {
+    pub fn get_possible_moves(self, board: &Board, origin: Position) -> Vec<Move> {
         let mut moves: Vec<Move> = Vec::new();
         match self {
             Piece::Knight(color) => {
-                let offsets: [(i8, i8); 8] = [
+                let offsets: [(i32, i32); 8] = [
                     (1, 2),
                     (2, 1),
                     (2, -1),
@@ -59,42 +59,36 @@ impl Piece {
                     (-2, 1),
                     (-1, 2),
                 ];
-                let (row, col) = coords;
-                for (row_offset, col_offset) in offsets {
-                    let r = row as i8 + row_offset;
-                    let c = col as i8 + col_offset;
-                    if r >= 0 && c >= 0 {
-                        let r = r as usize;
-                        let c = c as usize;
-                        if r < board.num_rows() && c < board.num_cols() {
-                            match color {
-                                Color::White => {
-                                    if let Some(piece) = board.squares[r][c] {
-                                        match piece {
-                                            Piece::King(_) => (),
-                                            _ => {
-                                                if let Color::Black = piece.get_color() {
-                                                    moves.push(Move::Take { row: r as u8, col: c as u8, });
-                                                }
+                for offset in offsets {
+                    let position = origin + offset;
+                    if board.within_bounds(position) {
+                        match color {
+                            Color::White => {
+                                if let Some(piece) = board.at(position) {
+                                    match piece {
+                                        Piece::King(_) => (),
+                                        _ => {
+                                            if let Color::Black = piece.get_color() {
+                                                moves.push(Move::Take(position));
                                             }
                                         }
-                                    } else {
-                                        moves.push(Move::GoTo { row: r as u8, col: c as u8, });
                                     }
+                                } else {
+                                    moves.push(Move::GoTo(position));
                                 }
-                                Color::Black => {
-                                    if let Some(piece) = board.squares[r][c] {
-                                        match piece {
-                                            Piece::King(_) => (),
-                                            _ => {
-                                                if let Color::White = piece.get_color() {
-                                                    moves.push(Move::Take { row: r as u8, col: c as u8, });
-                                                }
+                            }
+                            Color::Black => {
+                                if let Some(piece) = board.at(position) {
+                                    match piece {
+                                        Piece::King(_) => (),
+                                        _ => {
+                                            if let Color::White = piece.get_color() {
+                                                moves.push(Move::Take(position));
                                             }
                                         }
-                                    } else {
-                                        moves.push(Move::GoTo { row: r as u8, col: c as u8, });
                                     }
+                                } else {
+                                    moves.push(Move::GoTo(position));
                                 }
                             }
                         }
@@ -104,12 +98,35 @@ impl Piece {
             Piece::Pawn(color) => {
                 match color {
                     Color::White => {
-                        let (r, c) = coords;
                         // Movement
-                        if board.within_bounds(r + 1, c) {}
+                        let p = origin + (1, 0);
+                        if board.within_bounds(p) && board.is_empty_at(p) {
+                            moves.push(Move::GoTo(p));
+                        }
+                        if origin.row == 1 {
+                            let p = origin + (2, 0);
+                            if board.within_bounds(p) && board.is_empty_at(p) {
+                                moves.push(Move::GoTo(p));
+                            }
+                        }
                         // Captures
+                        // TODO
                     }
-                    Color::Black => todo!(),
+                    Color::Black => {
+                        // Movement
+                        let p = origin + (-1, 0);
+                        if board.within_bounds(p) && board.is_empty_at(p) {
+                            moves.push(Move::GoTo(p));
+                        }
+                        if origin.row == 7 {
+                            let p = origin + (-2, 0);
+                            if board.within_bounds(p) && board.is_empty_at(p) {
+                                moves.push(Move::GoTo(p));
+                            }
+                        }
+                        // Captures
+                        // TODO
+                    }
                 }
             }
             Piece::Bishop(_) => todo!(),
@@ -200,8 +217,19 @@ impl Board {
         8
     }
 
-    pub fn within_bounds(&self, row: i32, col: i32) -> bool {
-        0 <= row && (row as usize) < self.num_rows() && 0 <= col && (col as usize) < self.num_cols()
+    pub fn within_bounds(&self, position: Position) -> bool {
+        0 <= position.row
+            && (position.row as usize) < self.num_rows()
+            && 0 <= position.col
+            && (position.col as usize) < self.num_cols()
+    }
+
+    pub fn is_empty_at(&self, position: Position) -> bool {
+        self.squares[position.row as usize][position.col as usize].is_none()
+    }
+
+    pub fn at(&self, position: Position) -> Option<Piece> {
+        self.squares[position.row as usize][position.col as usize]
     }
 }
 
