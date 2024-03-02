@@ -1,21 +1,7 @@
 use std::fmt;
 use std::ops::Add;
+use crate::piece::{Color, Piece};
 
-#[derive(Clone, Copy, Debug)]
-pub enum Color {
-    White,
-    Black,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum Piece {
-    Pawn(Color),
-    Knight(Color),
-    Bishop(Color),
-    Rook(Color),
-    Queen(Color),
-    King(Color),
-}
 
 #[derive(Debug, Clone, Copy)]
 pub struct Position {
@@ -283,37 +269,6 @@ impl Add<(i32, i32)> for Position {
     }
 }
 
-impl fmt::Display for Piece {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Piece::Pawn(color) => match color {
-                Color::White => write!(f, "wP"),
-                Color::Black => write!(f, "bP"),
-            },
-            Piece::Knight(color) => match color {
-                Color::White => write!(f, "wN"),
-                Color::Black => write!(f, "bN"),
-            },
-            Piece::Bishop(color) => match color {
-                Color::White => write!(f, "wB"),
-                Color::Black => write!(f, "bB"),
-            },
-            Piece::Rook(color) => match color {
-                Color::White => write!(f, "wR"),
-                Color::Black => write!(f, "bR"),
-            },
-            Piece::Queen(color) => match color {
-                Color::White => write!(f, "wQ"),
-                Color::Black => write!(f, "bQ"),
-            },
-            Piece::King(color) => match color {
-                Color::White => write!(f, "wK"),
-                Color::Black => write!(f, "bK"),
-            },
-        }
-    }
-}
-
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for i in 0..8 {
@@ -321,7 +276,7 @@ impl fmt::Display for Board {
                 if let Some(piece) = self.squares[i][j] {
                     write!(f, "{} ", piece)?;
                 } else {
-                    write!(f, " . ")?;
+                    write!(f, " .  ")?;
                 }
             }
             write!(f, "\n")?;

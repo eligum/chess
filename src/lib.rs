@@ -1,5 +1,6 @@
 pub mod board;
 pub mod bitboard;
+pub mod piece;
 
 #[cfg(test)]
 mod tests {
@@ -7,7 +8,7 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let b = board::Board::new();
+        let _b = board::Board::new();
         assert_eq!(2 + 2, 4);
     }
 }

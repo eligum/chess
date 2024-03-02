@@ -1,5 +1,5 @@
 #[allow(unused_imports)]
-use chess::board::{Board, Piece, Position};
+use chess::board::{Board, Position};
 use std::io::Write;
 
 fn main() -> std::io::Result<()> {
