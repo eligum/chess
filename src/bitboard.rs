@@ -4,6 +4,7 @@ use crate::piece::*;
 
 type Result<T> = std::result::Result<T, String>;
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct Board {
     white_pawns: u64,
     white_knights: u64,
@@ -122,18 +123,91 @@ impl Board {
     #[rustfmt::skip]
     pub fn new() -> Self {
         Self {
-            white_pawns:   0x40_40_40_40_40_40_40_40,
-            white_rooks:   0x80_00_00_00_00_00_00_80,
-            white_knights: 0x00_80_00_00_00_00_80_00,
-            white_bishops: 0x00_00_80_00_00_80_00_00,
-            white_queens:  0x00_00_00_80_00_00_00_00,
-            white_kings:   0x00_00_00_00_80_00_00_00,
-            black_pawns:   0x02_02_02_02_02_02_02_02,
-            black_rooks:   0x01_00_00_00_00_00_00_01,
-            black_knights: 0x00_01_00_00_00_00_01_00,
-            black_bishops: 0x00_00_01_00_00_01_00_00,
-            black_queens:  0x00_00_00_01_00_00_00_00,
-            black_kings:   0x00_00_00_00_01_00_00_00,
+            white_pawns:   0x00_ff_00_00_00_00_00_00,
+            white_rooks:   0x81_00_00_00_00_00_00_00,
+            white_knights: 0x42_00_00_00_00_00_00_00,
+            white_bishops: 0x24_00_00_00_00_00_00_00,
+            white_queens:  0x10_00_00_00_00_00_00_00,
+            white_kings:   0x08_00_00_00_00_00_00_00,
+            black_pawns:   0x00_00_00_00_00_00_ff_00,
+            black_rooks:   0x00_00_00_00_00_00_00_81,
+            black_knights: 0x00_00_00_00_00_00_00_42,
+            black_bishops: 0x00_00_00_00_00_00_00_24,
+            black_queens:  0x00_00_00_00_00_00_00_10,
+            black_kings:   0x00_00_00_00_00_00_00_08,
+        }
+    }
+
+    pub fn from_array(array: &[Option<Piece>; 64]) -> Self {
+        let mut white_pawns: u64 = 0;
+        let mut white_rooks: u64 = 0;
+        let mut white_knights: u64 = 0;
+        let mut white_bishops: u64 = 0;
+        let mut white_queens: u64 = 0;
+        let mut white_kings: u64 = 0;
+        let mut black_pawns: u64 = 0;
+        let mut black_rooks: u64 = 0;
+        let mut black_knights: u64 = 0;
+        let mut black_bishops: u64 = 0;
+        let mut black_queens: u64 = 0;
+        let mut black_kings: u64 = 0;
+
+        for square in array {
+            white_pawns <<= 1;
+            white_rooks <<= 1;
+            white_knights <<= 1;
+            white_bishops <<= 1;
+            white_queens <<= 1;
+            white_kings <<= 1;
+            black_pawns <<= 1;
+            black_rooks <<= 1;
+            black_knights <<= 1;
+            black_bishops <<= 1;
+            black_queens <<= 1;
+            black_kings <<= 1;
+            if let Some(piece) = square {
+                match piece {
+                    Piece::Pawn(c) => match c {
+                        Color::White => white_pawns |= 1,
+                        Color::Black => black_pawns |= 1,
+                    },
+                    Piece::Rook(c) => match c {
+                        Color::White => white_rooks |= 1,
+                        Color::Black => black_rooks |= 1,
+                    },
+                    Piece::Knight(c) => match c {
+                        Color::White => white_knights |= 1,
+                        Color::Black => black_knights |= 1,
+                    },
+                    Piece::Bishop(c) => match c {
+                        Color::White => white_bishops |= 1,
+                        Color::Black => black_bishops |= 1,
+                    },
+                    Piece::Queen(c) => match c {
+                        Color::White => white_queens |= 1,
+                        Color::Black => black_queens |= 1,
+                    },
+                    Piece::King(c) => match c {
+                        Color::White => white_kings |= 1,
+                        Color::Black => black_kings |= 1,
+                    },
+                }
+            }
+        }
+
+        Self {
+            white_pawns,
+            white_rooks,
+            white_knights,
+            white_bishops,
+            white_queens,
+            white_kings,
+            black_pawns,
+            black_rooks,
+            black_knights,
+            black_bishops,
+            black_queens,
+            black_kings,
         }
     }
 

@@ -1,6 +1,8 @@
 pub mod board;
 pub mod bitboard;
 pub mod piece;
+pub mod parser;
+pub mod errors;
 
 #[cfg(test)]
 mod tests {
