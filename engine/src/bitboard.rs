@@ -1,6 +1,7 @@
 //! Todo.
 
 use crate::piece::*;
+use std::ops::Add;
 
 type Result<T> = std::result::Result<T, String>;
 
@@ -211,6 +212,13 @@ impl Board {
         }
     }
 
+    /// Returns an array of `Option<Piece>` that represents the current position of the board.
+    pub fn extract_array(&self) -> [Option<Piece>; 64] {
+        let mut result = [None; 64];
+        
+        result
+    }
+
     pub fn is_legal_position(&self) -> bool {
         // Pieces overlap
         let overlap = self.white_pawns
@@ -244,6 +252,16 @@ impl Board {
 
     pub fn make_move(&mut self, mov: Move) {
         todo!()
+    }
+}
+
+impl Add<(i32, i32)> for Square {
+    type Output = Self;
+
+    fn add(self, rhs: (i32, i32)) -> Self::Output {
+        Self {
+            index: self.index + (rhs.0 + rhs.1 * 8) as u32,
+        }
     }
 }
 

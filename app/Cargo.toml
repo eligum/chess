@@ -1,0 +1,16 @@
+[package]
+name = "app"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "chess"
+path = "src/main.rs"
+
+[dependencies]
+# Local crates
+engine = { path = "../engine" }
+
+# External crates
+bevy = "0.13.0"
+rand = "0.8.5"
