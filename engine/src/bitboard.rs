@@ -1,6 +1,6 @@
 //! Todo.
 
-use crate::piece::*;
+use crate::{bits, piece::*};
 use std::ops::Add;
 
 type Result<T> = std::result::Result<T, String>;
@@ -51,7 +51,7 @@ impl Square {
                 'h' | 'H' => 7,
                 _ => {
                     return Err(format!(
-                        "Unknown column coordinate '{}'. Expected a, b, c, d, e, f, g or h",
+                        "Unknown file coordinate '{}'. Expected a, b, c, d, e, f, g or h",
                         letter
                     ))
                 }
@@ -61,7 +61,7 @@ impl Square {
                     Some(x) if 1 <= x && x <= 8 => x - 1,
                     _ => {
                         return Err(format!(
-                            "Unknown row coordinate '{}'. Expected 1, 2, 3, 4, 5, 6, 7 or 8",
+                            "Unknown rank coordinate '{}'. Expected 1, 2, 3, 4, 5, 6, 7 or 8",
                             digit
                         ))
                     }
@@ -75,12 +75,12 @@ impl Square {
         Err(format!("Failed to parse '{}' as algebraic notation", text))
     }
 
-    /// Returns the row/rank index of the square in the chess board.
+    /// Returns the row index (rank) of the square.
     pub fn get_rank(&self) -> u32 {
         self.index / 8
     }
 
-    /// Returns the column/file index of the square in the chess board.
+    /// Returns the column index (file) of the square.
     pub fn get_file(&self) -> u32 {
         self.index % 8
     }
@@ -213,10 +213,30 @@ impl Board {
     }
 
     /// Returns an array of `Option<Piece>` that represents the current position of the board.
-    pub fn extract_array(&self) -> [Option<Piece>; 64] {
+    ///
+    /// TODO: Implement.
+    pub fn to_array(&self) -> [Option<Piece>; 64] {
         let mut result = [None; 64];
-        
         result
+    }
+
+    /// Returns the bitboard resulting from the union of all the piece bitboards.
+    ///
+    /// The occupancy refers to the set of all squares occupied by any piece. Thus, the
+    /// complement of the occupancy is the set of all empty squares.
+    pub fn occupancy(&self) -> u64 {
+        self.white_pawns
+            | self.white_knights
+            | self.white_bishops
+            | self.white_rooks
+            | self.white_queens
+            | self.white_kings
+            | self.black_pawns
+            | self.black_knights
+            | self.black_bishops
+            | self.black_rooks
+            | self.black_queens
+            | self.black_kings
     }
 
     pub fn is_legal_position(&self) -> bool {
@@ -235,22 +255,20 @@ impl Board {
             & self.black_kings
             > 0;
         // Only one king of each color
-        let unique_white_king =
-            self.white_kings > 0 && (self.white_kings & (self.white_kings - 1) == 0);
-        let unique_black_king =
-            self.black_kings > 0 && (self.black_kings & (self.black_kings - 1) == 0);
-        let unique_kings = unique_white_king && unique_black_king;
-
-        // self.black_pawns.count_ones();
+        let unique_kings = bits::only_one(self.white_kings) && bits::only_one(self.black_kings);
 
         !overlap && unique_kings
     }
 
-    pub fn get_legal_moves(&self, white_to_play: bool) -> Vec<Move> {
+    pub fn get_legal_moves(&self, color_to_move: Color) -> Vec<Move> {
         todo!()
     }
 
     pub fn make_move(&mut self, mov: Move) {
+        todo!()
+    }
+
+    pub fn undo_move(&mut self, mov: Move) {
         todo!()
     }
 }
