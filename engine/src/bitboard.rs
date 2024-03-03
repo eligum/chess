@@ -1,12 +1,14 @@
 //! Todo.
 
 use crate::{bits, piece::*};
+use bitflags::bitflags;
 use std::ops::Add;
 
 type Result<T> = std::result::Result<T, String>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Board {
+    // pieces
     white_pawns: u64,
     white_knights: u64,
     white_bishops: u64,
@@ -19,6 +21,9 @@ pub struct Board {
     black_rooks: u64,
     black_queens: u64,
     black_kings: u64,
+    // position metadata
+    color_to_move: Color,
+    castling_rights: CastleRights,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -30,6 +35,24 @@ pub struct Square {
 pub struct Move {
     origin: Square,
     target: Square,
+}
+
+bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    pub struct CastleRights: u8 {
+        /// None.
+        const None = 0;
+        /// White pieces kingside castling.
+        const WhiteKS = 0x01;
+        /// White pieces queenside castling.
+        const WhiteQS = 0x02;
+        /// Black pieces kingside castling.
+        const BlackKS = 0x04;
+        /// Black pieces queenside castling.
+        const BlackQS = 0x08;
+        /// Both colors have all castling rights.
+        const All = 0x0f;
+    }
 }
 
 impl Square {
@@ -108,7 +131,7 @@ impl Move {
     /// Constructs a `Move` from two indices.
     ///
     /// This function does not check wether the indices are within bounds of the board,
-    /// so you could end up with an illegal move.
+    /// so you could end up with an impossible move.
     pub fn from_indices(origin: u32, target: u32) -> Self {
         Self {
             origin: Square { index: origin },
@@ -136,10 +159,16 @@ impl Board {
             black_bishops: 0x00_00_00_00_00_00_00_24,
             black_queens:  0x00_00_00_00_00_00_00_10,
             black_kings:   0x00_00_00_00_00_00_00_08,
+            castling_rights: CastleRights::All,
+            color_to_move: Color::White,
         }
     }
 
-    pub fn from_array(array: &[Option<Piece>; 64]) -> Self {
+    pub fn from_array(
+        array: &[Option<Piece>; 64],
+        castling_rights: CastleRights,
+        color_to_move: Color,
+    ) -> Self {
         let mut white_pawns: u64 = 0;
         let mut white_rooks: u64 = 0;
         let mut white_knights: u64 = 0;
@@ -209,6 +238,8 @@ impl Board {
             black_bishops,
             black_queens,
             black_kings,
+            castling_rights,
+            color_to_move,
         }
     }
 
@@ -270,6 +301,22 @@ impl Board {
 
     pub fn undo_move(&mut self, mov: Move) {
         todo!()
+    }
+
+    /// Returns `true` if the `color` pieces have the right to castle kingside.
+    pub fn can_castle_kingside(&self, color: Color) -> bool {
+        match color {
+            Color::White => self.castling_rights.contains(CastleRights::WhiteKS),
+            Color::Black => self.castling_rights.contains(CastleRights::BlackKS),
+        }
+    }
+
+    /// Returns `true` if the `color` pieces have the right to castle queenside.
+    pub fn can_castle_queenside(&self, color: Color) -> bool {
+        match color {
+            Color::White => self.castling_rights.contains(CastleRights::WhiteQS),
+            Color::Black => self.castling_rights.contains(CastleRights::BlackQS),
+        }
     }
 }
 
