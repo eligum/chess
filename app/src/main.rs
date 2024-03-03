@@ -1,5 +1,8 @@
-use bevy::prelude::*;
+use bevy:: prelude::*;
 
 fn main() {
-    App::new().run();
+    App::new()
+        .add_plugins(DefaultPlugins)
+        // .add_systems(Startup, todo!())
+        .run();
 }

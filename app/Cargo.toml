@@ -12,5 +12,5 @@ path = "src/main.rs"
 engine = { path = "../engine" }
 
 # External crates
-bevy = "0.13.0"
+bevy = { version = "0.13.0", features = ["dynamic_linking"] }
 rand = "0.8.5"
