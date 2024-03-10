@@ -6,9 +6,6 @@ use bevy::{
 use engine::{bitboard, parser, piece};
 
 const BOARD_SIZE: f32 = 720.0;
-const ASPECT_RATIO: f32 = 9.0 / 16.0;
-const VIEWPORT_WIDTH: f32 = 1000.0;
-const VIEWPORT_HEIGHT: f32 = 1000.0 * ASPECT_RATIO;
 
 fn main() {
     App::new()
@@ -64,9 +61,6 @@ struct Square {
 #[derive(Component)]
 struct PieceComp;
 
-#[derive(Component, Deref, DerefMut)]
-struct AnimationTimer(Timer);
-
 fn load_graphics(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -91,120 +85,119 @@ fn load_graphics(
     })
 }
 
-fn spawn_pieces(mut commands: Commands, graphics: Res<Graphics>, qy_board: Query<&Board>) {
-    let (ref texture, ref layout) = graphics.piece_theme;
-
-    let board = qy_board.single();
-
-    commands.spawn((SpriteSheetBundle {
-        sprite: Sprite {
-            custom_size: Some(board.size / 8.0),
-            ..default()
-        },
-        transform: Transform::from_xyz(0.0, 0.0, 0.1),
-        texture: texture.clone(),
-        atlas: TextureAtlas {
-            layout: layout.clone(),
-            index: 0,
-        },
-        ..default()
-    },));
-
-    // spawn_piece(
-    //     &mut commands,
-    //     0,
-    //     piece::Piece::King(piece::Color::White),
-    //     texture.clone(),
-    //     layout.clone(),
-    // );
-}
-
-// fn spawn_piece(
-//     &mut commands: Commands,
-//     square: u32,
-//     piece_type: piece::Piece,
-//     texture: Handle<Image>,
-//     layout: Handle<TextureAtlasLayout>,
-// ) {
-//     commands.spawn((
-//         SpriteSheetBundle {
-//             sprite: Sprite {
-//                 custom_size: Some(board.size / 8.0),
-//                 ..default()
-//             },
-//             transform: Transform::from_xyz(0.0, 0.0, 0.1),
-//             texture,
-//             atlas: TextureAtlas {
-//                 layout,
-//                 index: match piece_type {
-//                     piece::Piece::Pawn(color) => match color {
-//                         piece::Color::White => 0,
-//                         piece::Color::Black => 6,
-//                     },
-//                     piece::Piece::Knight(color) => match color {
-//                         piece::Color::White => 1,
-//                         piece::Color::Black => 7,
-//                     },
-//                     piece::Piece::Bishop(color) => match color {
-//                         piece::Color::White => 2,
-//                         piece::Color::Black => 8,
-//                     },
-//                     piece::Piece::Rook(color) => match color {
-//                         piece::Color::White => 3,
-//                         piece::Color::Black => 9,
-//                     },
-//                     piece::Piece::Queen(color) => match color {
-//                         piece::Color::White => 4,
-//                         piece::Color::Black => 10,
-//                     },
-//                     piece::Piece::King(color) => match color {
-//                         piece::Color::White => 5,
-//                         piece::Color::Black => 11,
-//                     },
-//                 },
-//             },
-//             ..default()
-//         },
-//         PieceComp,
-//     ));
-// }
-
-fn spawn_camera(mut commands: Commands, window_query: Query<&Window, With<PrimaryWindow>>) {
-    let window = window_query.single();
-    let ar = window.height() / window.width();
-    let viewport = Vec2::new(VIEWPORT_WIDTH, VIEWPORT_WIDTH * ar);
+fn spawn_camera(mut commands: Commands, qy_window: Query<&Window, With<PrimaryWindow>>) {
+    let window = qy_window.single();
+    let _ar = window.height() / window.width();
 
     commands.spawn(Camera2dBundle {
         transform: Transform::from_xyz(0.0, 0.0, 1.0), // Camera z = 1.0 to see sprites at z = 0.0
-        projection: OrthographicProjection {
-            area: Rect {
-                min: viewport / -2.0,
-                max: viewport / 2.0,
-            },
-            ..default()
-        },
         ..default()
     });
 }
 
-fn spawn_board(mut commands: Commands, graphics: Res<Graphics>) {
-    let square_size = Vec2::splat(BOARD_SIZE / 8.0);
-    let board_size = Vec2::splat(BOARD_SIZE);
-    let board_center = vec2(0.0, 0.0);
+fn spawn_pieces(
+    mut commands: Commands,
+    graphics: Res<Graphics>,
+    qy_board: Query<(Entity, &Board)>,
+) {
+    let (ref texture, ref layout) = graphics.piece_theme;
+    let (board_id, board) = qy_board.single();
 
+    let square_size = board.size / 8.0;
+    let first_square = Vec2::ZERO - (board.size - square_size) / 2.0;
+    let mut piece_ids: Vec<Entity> = Vec::with_capacity(32);
+
+    for rank in 0..8 {
+        for file in 0..8 {
+            if let Some(piece_type) = board.bitboard.at(rank * 8 + file) {
+                info!("At index {} found {:?}", rank * 8 + file, piece_type);
+                piece_ids.push(
+                    commands
+                        .spawn((
+                            PieceComp,
+                            SpriteSheetBundle {
+                                sprite: Sprite {
+                                    custom_size: Some(board.size / 8.0),
+                                    ..default()
+                                },
+                                transform: Transform {
+                                    translation: vec3(first_square.x, first_square.y, 0.0)
+                                        + vec3(
+                                            square_size.x * file as f32,
+                                            square_size.y * rank as f32,
+                                            0.0,
+                                        ),
+                                    ..default()
+                                },
+                                texture: texture.clone(),
+                                atlas: TextureAtlas {
+                                    layout: layout.clone(),
+                                    index: match piece_type {
+                                        piece::Piece::Pawn(color) => match color {
+                                            piece::Color::White => 5,
+                                            piece::Color::Black => 11,
+                                        },
+                                        piece::Piece::Knight(color) => match color {
+                                            piece::Color::White => 3,
+                                            piece::Color::Black => 9,
+                                        },
+                                        piece::Piece::Bishop(color) => match color {
+                                            piece::Color::White => 2,
+                                            piece::Color::Black => 8,
+                                        },
+                                        piece::Piece::Rook(color) => match color {
+                                            piece::Color::White => 4,
+                                            piece::Color::Black => 10,
+                                        },
+                                        piece::Piece::Queen(color) => match color {
+                                            piece::Color::White => 1,
+                                            piece::Color::Black => 7,
+                                        },
+                                        piece::Piece::King(color) => match color {
+                                            piece::Color::White => 0,
+                                            piece::Color::Black => 6,
+                                        },
+                                    },
+                                },
+                                ..default()
+                            },
+                        ))
+                        .id(),
+                );
+            }
+        }
+    }
+
+    commands.entity(board_id).push_children(&piece_ids[..]);
+}
+
+fn spawn_board(mut commands: Commands, graphics: Res<Graphics>) {
     let (light_squares_color, dark_squares_color) = graphics.board_theme;
 
+    let square_size = Vec2::splat(BOARD_SIZE / 8.0);
+    let board_size = Vec2::splat(BOARD_SIZE);
+    let board_center = vec2(200.0, 0.0);
+
     let board_id = commands
-        .spawn(Board {
-            center: board_center,
-            size: board_size,
-            light_color: light_squares_color,
-            dark_color: dark_squares_color,
-            bitboard: bitboard::Board::new(),
-        })
+        .spawn((
+            Board {
+                center: board_center,
+                size: board_size,
+                light_color: light_squares_color,
+                dark_color: dark_squares_color,
+                bitboard: bitboard::Board::new(),
+            },
+            SpatialBundle {
+                transform: Transform::from_xyz(board_center.x, board_center.y, 0.0),
+                ..default()
+            },
+        ))
         .id();
 
-    let first_square = board_center - (board_size - square_size) / 2.0;
+    // NOTE: Child transforms are relative to their parent's transform. Since in this
+    // hierarchy board squares are children of a board entity, their transform remains
+    // the same no matter the board position.
+    let first_square = Vec2::ZERO - (board_size - square_size) / 2.0;
     let mut square_ids = [Entity::from_raw(0); 64];
 
     for rank in 0..8 {
@@ -240,5 +233,5 @@ fn spawn_board(mut commands: Commands, graphics: Res<Graphics>) {
     }
 
     // Construct parent/child hierarchy
-    // commands.entity(board_id).push_children(&square_ids[..]);
+    commands.entity(board_id).push_children(&square_ids[..]);
 }

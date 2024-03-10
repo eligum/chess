@@ -1,4 +1,9 @@
-//! Todo.
+//! Board representation.
+//!
+//! Most significant bit (MSB) represents the 'a1' square while the least significant
+//! bit (LSB) represents the 'h8' square.
+//!
+//! TODO: Expand this section.
 
 use crate::{bits, piece::*};
 use bitflags::bitflags;
@@ -270,25 +275,65 @@ impl Board {
             | self.black_kings
     }
 
-    pub fn is_legal_position(&self) -> bool {
+    /// Checks whether the internal representation of the board is in a valid state.
+    ///
+    /// This function is meant for debugging and the development of the `chess::engine`
+    /// crate. It checks for overlapping piece bitboards and verifies the presence of
+    /// only one king of each color.
+    pub fn is_valid(&self) -> bool {
         // Pieces overlap
-        let overlap = self.white_pawns
-            & self.white_knights
-            & self.white_bishops
-            & self.white_rooks
-            & self.white_queens
-            & self.white_kings
-            & self.black_pawns
-            & self.black_knights
-            & self.black_bishops
-            & self.black_rooks
-            & self.black_queens
-            & self.black_kings
-            > 0;
+        #[rustfmt::skip]
+        let overlap = Some(self.white_pawns)
+            .map(|v| v.checked_add(self.white_knights)).flatten()
+            .map(|v| v.checked_add(self.white_bishops)).flatten()
+            .map(|v| v.checked_add(self.white_rooks)).flatten()
+            .map(|v| v.checked_add(self.white_queens)).flatten()
+            .map(|v| v.checked_add(self.white_kings)).flatten()
+            .map(|v| v.checked_add(self.black_pawns)).flatten()
+            .map(|v| v.checked_add(self.black_knights)).flatten()
+            .map(|v| v.checked_add(self.black_bishops)).flatten()
+            .map(|v| v.checked_add(self.black_rooks)).flatten()
+            .map(|v| v.checked_add(self.black_queens)).flatten()
+            .map(|v| v.checked_add(self.black_kings)).flatten()
+            != Some(self.occupancy());
         // Only one king of each color
         let unique_kings = bits::only_one(self.white_kings) && bits::only_one(self.black_kings);
 
         !overlap && unique_kings
+    }
+
+    pub fn at(&self, index: usize) -> Option<Piece> {
+        if index > 63 {
+            return None;
+        }
+        let bitmask = (1 << 63) >> index;
+        if bitmask & self.white_pawns > 0 {
+            Some(Piece::Pawn(Color::White))
+        } else if bitmask & self.white_knights > 0 {
+            Some(Piece::Knight(Color::White))
+        } else if bitmask & self.white_bishops > 0 {
+            Some(Piece::Bishop(Color::White))
+        } else if bitmask & self.white_rooks > 0 {
+            Some(Piece::Rook(Color::White))
+        } else if bitmask & self.white_queens > 0 {
+            Some(Piece::Queen(Color::White))
+        } else if bitmask & self.white_kings > 0 {
+            Some(Piece::King(Color::White))
+        } else if bitmask & self.black_pawns > 0 {
+            Some(Piece::Pawn(Color::Black))
+        } else if bitmask & self.black_knights > 0 {
+            Some(Piece::Knight(Color::Black))
+        } else if bitmask & self.black_bishops > 0 {
+            Some(Piece::Bishop(Color::Black))
+        } else if bitmask & self.black_rooks > 0 {
+            Some(Piece::Rook(Color::Black))
+        } else if bitmask & self.black_queens > 0 {
+            Some(Piece::Queen(Color::Black))
+        } else if bitmask & self.black_kings > 0 {
+            Some(Piece::King(Color::Black))
+        } else {
+            None
+        }
     }
 
     pub fn get_legal_moves(&self, color_to_move: Color) -> Vec<Move> {
@@ -333,7 +378,7 @@ impl Add<(i32, i32)> for Square {
 #[test]
 fn no_overlap() {
     let board = Board::new();
-    assert!(board.is_legal_position());
+    assert!(board.is_valid());
 }
 
 #[test]
