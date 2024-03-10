@@ -66,6 +66,7 @@ pub fn load_position_from_fen(fen: &str) -> Result<Board, String> {
         .chars()
     {
         match symbol {
+            '-' => break,
             'K' => castling_rights |= CastleRights::WhiteKS,
             'Q' => castling_rights |= CastleRights::WhiteQS,
             'k' => castling_rights |= CastleRights::BlackKS,

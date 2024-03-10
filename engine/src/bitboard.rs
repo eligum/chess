@@ -145,7 +145,7 @@ impl Board {
     ///
     /// To understand more about the board representation read the `bitboard` module documentation.
     #[rustfmt::skip]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             white_pawns:   0x00_ff_00_00_00_00_00_00,
             white_rooks:   0x81_00_00_00_00_00_00_00,
@@ -243,10 +243,10 @@ impl Board {
         }
     }
 
-    /// Returns an array of `Option<Piece>` that represents the current position of the board.
+    /// Returns an array of `Option<Piece>` that represents squares of the board.
     ///
     /// TODO: Implement.
-    pub fn to_array(&self) -> [Option<Piece>; 64] {
+    pub fn piece_array(&self) -> [Option<Piece>; 64] {
         let mut result = [None; 64];
         result
     }
