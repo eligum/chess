@@ -4,13 +4,16 @@ use bevy::{
     window::PrimaryWindow,
 };
 use engine::{bitboard, parser, piece};
+use crate::graphics::*;
+
+mod graphics;
 
 const BOARD_SIZE: f32 = 720.0;
 
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::rgb(0.1, 0.1, 0.1)))
-        .add_plugins(
+        .add_plugins((
             DefaultPlugins
                 .set(ImagePlugin::default_linear())
                 .set(WindowPlugin {
@@ -23,23 +26,17 @@ fn main() {
                     ..default()
                 })
                 .build(),
-        )
+            asset_loading_plugin,
+        ))
         .add_systems(
             Startup,
             (
-                load_graphics,
                 spawn_camera,
-                spawn_board.after(load_graphics),
+                spawn_board,
                 spawn_pieces.after(spawn_board),
             ),
         )
         .run();
-}
-
-#[derive(Resource)]
-struct Graphics {
-    piece_theme: (Handle<Image>, Handle<TextureAtlasLayout>),
-    board_theme: (Color, Color),
 }
 
 #[derive(Component)]
@@ -60,30 +57,6 @@ struct Square {
 
 #[derive(Component)]
 struct PieceComp;
-
-fn load_graphics(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
-) {
-    // Piece assets
-    let texture_handle = asset_server.load("image/pieces_320x107.png");
-    let layout_handle = texture_atlas_layouts.add(TextureAtlasLayout::from_grid(
-        Vec2::splat(106.5),
-        6,
-        2,
-        None,
-        None,
-    ));
-    // Board assets
-    let ligth_squares_color = Color::hex("f0d9b5").unwrap();
-    let dark_squares_color = Color::hex("b58863").unwrap();
-
-    commands.insert_resource(Graphics {
-        piece_theme: (texture_handle, layout_handle),
-        board_theme: (ligth_squares_color, dark_squares_color),
-    })
-}
 
 fn spawn_camera(mut commands: Commands, qy_window: Query<&Window, With<PrimaryWindow>>) {
     let window = qy_window.single();
