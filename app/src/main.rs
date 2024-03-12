@@ -1,10 +1,10 @@
+use crate::graphics::*;
 use bevy::{
     math::{vec2, vec3},
     prelude::*,
     window::PrimaryWindow,
 };
 use engine::{bitboard, parser, piece};
-use crate::graphics::*;
 
 mod graphics;
 
@@ -30,13 +30,48 @@ fn main() {
         ))
         .add_systems(
             Startup,
-            (
-                spawn_camera,
-                spawn_board,
-                spawn_pieces.after(spawn_board),
-            ),
+            (spawn_camera, spawn_board, spawn_pieces.after(spawn_board)),
         )
+        .add_systems(Update, (click_detection_system,))
         .run();
+}
+
+fn click_detection_system(
+    mouse: Res<ButtonInput<MouseButton>>,
+    qy_window: Query<&Window, With<PrimaryWindow>>,
+    qy_board: Query<&Board>,
+) {
+    let window = qy_window.single();
+    let board = qy_board.single();
+
+    // if mouse.pressed(MouseButton::Left) {
+    //     info!("left mouse currently pressed");
+    // }
+
+    if mouse.just_pressed(MouseButton::Left) {
+        if let Some(position) = window.cursor_position() {
+            let world_cursor_position =
+                Vec2::new(position.x - window.width() / 2.0, -position.y + window.height() / 2.0);
+            info!(
+                "left mouse just pressed at position {}",
+                world_cursor_position,
+            );
+        }
+    }
+
+    if mouse.just_released(MouseButton::Left) {
+        info!("left mouse just released");
+    }
+}
+
+struct ActionState<A> {
+    a: A,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum Action {
+    DragPiece,
+    DropPiece,
 }
 
 #[derive(Component)]
