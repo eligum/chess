@@ -1,20 +1,41 @@
-use crate::bitboard::Square;
+use std::cmp::min;
 
-// pub const slider_attack_offsets: &'static [Vec<i32>] = compute_offsets();
+pub const DIRECTION_OFFSETS: &[i32] = &[8, -8, 1, -1, 9, -9, 7, -7];
 
-const DIRECTION_OFFSETS: &[i32] = &[1, 9, 8, 7, -1, -9, -8, -7];
+pub enum DirectionOffset {
+    North,
+    South,
+    East,
+    West,
+    NorthEast,
+    SouthWest,
+    NorthWest,
+    SouthEast,
+}
 
-pub fn compute_offsets() -> Vec<Vec<i32>> {
-    let mut attacks = Vec::with_capacity(64);
-    for idx in 0..64 {
-        attacks[idx] = Vec::new();
-        for offset in DIRECTION_OFFSETS {
-            let r = idx as i32 + offset;
-            if 0 <= r && r < 64{
-                attacks[idx].push(r);
-            }
+/// Computes the minimum distance to the edge of the board from each square for every direction.
+#[rustfmt::skip]
+pub fn compute_squares_to_edge() -> [[usize; 8]; 64] {
+    let mut squares_to_edge = [[0; 8]; 64];
+    for rank in 0..8 {
+        for file in 0..8 {
+            let n = 7 - rank;
+            let s = rank;
+            let e = 7 - file;
+            let w = file;
+            let index = rank * 8 + file;
+            squares_to_edge[index] = [
+                n,         //  8
+                s,         // -8
+                e,         //  1
+                w,         // -1
+                min(n, e), //  9
+                min(s, w), // -9
+                min(n, w), //  7
+                min(s, e), // -7
+            ];
         }
     }
 
-    attacks
+    squares_to_edge
 }
