@@ -282,19 +282,18 @@ impl Board {
     /// only one king of each color.
     pub fn is_valid(&self) -> bool {
         // Pieces overlap
-        #[rustfmt::skip]
         let overlap = Some(self.white_pawns)
-            .map(|v| v.checked_add(self.white_knights)).flatten()
-            .map(|v| v.checked_add(self.white_bishops)).flatten()
-            .map(|v| v.checked_add(self.white_rooks)).flatten()
-            .map(|v| v.checked_add(self.white_queens)).flatten()
-            .map(|v| v.checked_add(self.white_kings)).flatten()
-            .map(|v| v.checked_add(self.black_pawns)).flatten()
-            .map(|v| v.checked_add(self.black_knights)).flatten()
-            .map(|v| v.checked_add(self.black_bishops)).flatten()
-            .map(|v| v.checked_add(self.black_rooks)).flatten()
-            .map(|v| v.checked_add(self.black_queens)).flatten()
-            .map(|v| v.checked_add(self.black_kings)).flatten()
+            .and_then(|x| x.checked_add(self.white_knights))
+            .and_then(|x| x.checked_add(self.white_bishops))
+            .and_then(|x| x.checked_add(self.white_rooks))
+            .and_then(|x| x.checked_add(self.white_queens))
+            .and_then(|x| x.checked_add(self.white_kings))
+            .and_then(|x| x.checked_add(self.black_pawns))
+            .and_then(|x| x.checked_add(self.black_knights))
+            .and_then(|x| x.checked_add(self.black_bishops))
+            .and_then(|x| x.checked_add(self.black_rooks))
+            .and_then(|x| x.checked_add(self.black_queens))
+            .and_then(|x| x.checked_add(self.black_kings))
             != Some(self.occupancy());
         // Only one king of each color
         let unique_kings = bits::only_one(self.white_kings) && bits::only_one(self.black_kings);
