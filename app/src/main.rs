@@ -2,7 +2,7 @@ use crate::graphics::*;
 use bevy::{
     math::{vec2, vec3},
     prelude::*,
-    window::PrimaryWindow,
+    window::{PresentMode, PrimaryWindow},
 };
 use engine::{bitboard, parser, piece};
 
@@ -21,6 +21,7 @@ fn main() {
                         title: "Chess engine".into(),
                         resolution: (1600.0, 900.0).into(),
                         resizable: false,
+                        present_mode: PresentMode::AutoNoVsync,
                         ..default()
                     }),
                     ..default()
@@ -28,50 +29,109 @@ fn main() {
                 .build(),
             asset_loading_plugin,
         ))
+        .init_resource::<CursorWorldCoords>()
+        .init_resource::<GrabToolState>()
+        .add_event::<PieceGrabbedEvent>()
+        .add_event::<PieceDroppedEvent>()
         .add_systems(
             Startup,
             (spawn_camera, spawn_board, spawn_pieces.after(spawn_board)),
         )
-        .add_systems(Update, (click_detection_system,))
+        .add_systems(
+            Update,
+            (
+                cursor_position_system,
+                board_action_detection_system,
+                grab_event_listener,
+                drop_event_listener,
+                follow_cursor,
+            ),
+        )
         .run();
 }
 
-fn click_detection_system(
+fn board_action_detection_system(
     mouse: Res<ButtonInput<MouseButton>>,
-    qy_window: Query<&Window, With<PrimaryWindow>>,
+    cursor_world_coords: Res<CursorWorldCoords>,
+    mut evw_piece_grab: EventWriter<PieceGrabbedEvent>,
+    mut evw_piece_dropped: EventWriter<PieceDroppedEvent>,
     qy_board: Query<&Board>,
 ) {
-    let window = qy_window.single();
     let board = qy_board.single();
 
-    // if mouse.pressed(MouseButton::Left) {
-    //     info!("left mouse currently pressed");
-    // }
-
     if mouse.just_pressed(MouseButton::Left) {
-        if let Some(position) = window.cursor_position() {
-            let world_cursor_position =
-                Vec2::new(position.x - window.width() / 2.0, -position.y + window.height() / 2.0);
-            info!(
-                "left mouse just pressed at position {}",
-                world_cursor_position,
-            );
-        }
+        info!(
+            "left mouse just pressed at position {}",
+            cursor_world_coords.0,
+        );
+        evw_piece_grab.send(PieceGrabbedEvent { board_index: 12 });
     }
 
     if mouse.just_released(MouseButton::Left) {
         info!("left mouse just released");
+        evw_piece_dropped.send(PieceDroppedEvent);
     }
 }
 
-struct ActionState<A> {
-    a: A,
+fn drop_event_listener(
+    mut grab_tool: ResMut<GrabToolState>,
+    mut evr_piece_grab: EventReader<PieceDroppedEvent>,
+) {
+    for _ev in evr_piece_grab.read() {
+        grab_tool.dragged_piece_id = None;
+        info!("piece dropped");
+    }
 }
 
-#[derive(Clone, Copy, Debug)]
-enum Action {
-    DragPiece,
-    DropPiece,
+fn grab_event_listener(
+    mut grab_tool: ResMut<GrabToolState>,
+    mut evr_piece_grab: EventReader<PieceGrabbedEvent>,
+    mut qy_piece: Query<(Entity, &mut Transform, &Piece)>,
+) {
+    for ev in evr_piece_grab.read() {
+        for (e, mut t, p) in qy_piece.iter_mut() {
+            if p.index == ev.board_index as usize {
+                grab_tool.dragged_piece_id = Some(e);
+                t.scale = Vec3::splat(1.2);
+            }
+        }
+    }
+}
+
+fn follow_cursor(
+    grab_tool: Res<GrabToolState>,
+    cursor_world_coords: Res<CursorWorldCoords>,
+    qy_board: Query<&GlobalTransform, With<Board>>,
+    mut qy_piece: Query<&mut Transform, With<Piece>>,
+) {
+    if let Some(piece_entity) = grab_tool.dragged_piece_id {
+        if let Ok(mut transform) = qy_piece.get_mut(piece_entity) {
+            let board_transform = qy_board.single();
+            let cursor = vec3(cursor_world_coords.0.x, cursor_world_coords.0.y, 0.1);
+            transform.translation = cursor - board_transform.translation();
+        }
+    }
+}
+
+#[derive(Event)]
+pub struct PieceGrabbedEvent {
+    pub board_index: u32,
+}
+
+#[derive(Event, Default)]
+pub struct PieceDroppedEvent;
+
+#[derive(Resource)]
+pub struct GrabToolState {
+    dragged_piece_id: Option<Entity>,
+}
+
+impl Default for GrabToolState {
+    fn default() -> Self {
+        Self {
+            dragged_piece_id: None,
+        }
+    }
 }
 
 #[derive(Component)]
@@ -79,8 +139,6 @@ struct Board {
     // graphics
     center: Vec2,
     size: Vec2,
-    light_color: Color,
-    dark_color: Color,
     // internal representation
     bitboard: bitboard::Board,
 }
@@ -91,7 +149,12 @@ struct Square {
 }
 
 #[derive(Component)]
-struct PieceComp;
+struct Piece {
+    index: usize,
+}
+
+#[derive(Resource, Default)]
+struct CursorWorldCoords(Vec2);
 
 fn spawn_camera(mut commands: Commands, qy_window: Query<&Window, With<PrimaryWindow>>) {
     let window = qy_window.single();
@@ -101,6 +164,22 @@ fn spawn_camera(mut commands: Commands, qy_window: Query<&Window, With<PrimaryWi
         transform: Transform::from_xyz(0.0, 0.0, 1.0), // Camera z = 1.0 to see sprites at z = 0.0
         ..default()
     });
+}
+
+fn cursor_position_system(
+    mut cursor_world_coords: ResMut<CursorWorldCoords>,
+    qy_window: Query<&Window, With<PrimaryWindow>>,
+    qy_camera: Query<(&Camera, &GlobalTransform)>,
+) {
+    let (camera, camera_transform) = qy_camera.single();
+    let window = qy_window.single();
+
+    if let Some(world_coords) = window
+        .cursor_position()
+        .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor))
+    {
+        cursor_world_coords.0 = world_coords;
+    }
 }
 
 fn spawn_pieces(
@@ -122,7 +201,9 @@ fn spawn_pieces(
                 piece_ids.push(
                     commands
                         .spawn((
-                            PieceComp,
+                            Piece {
+                                index: rank * 8 + file,
+                            },
                             SpriteSheetBundle {
                                 sprite: Sprite {
                                     custom_size: Some(board.size / 8.0),
@@ -191,8 +272,6 @@ fn spawn_board(mut commands: Commands, graphics: Res<Graphics>) {
             Board {
                 center: board_center,
                 size: board_size,
-                light_color: light_squares_color,
-                dark_color: dark_squares_color,
                 bitboard: bitboard::Board::new(),
             },
             SpatialBundle {
