@@ -33,13 +33,13 @@ pub struct Board {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Square {
-    index: u32,
+    pub index: u32,
 }
 
 #[derive(Clone, Copy, Debug)]
 pub struct Move {
-    origin: Square,
-    target: Square,
+    pub origin: Square,
+    pub target: Square,
 }
 
 bitflags! {

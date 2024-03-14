@@ -2,9 +2,12 @@ use crate::graphics::*;
 use bevy::{
     math::{vec2, vec3},
     prelude::*,
-    window::{PresentMode, PrimaryWindow},
+    window::{CursorGrabMode, PresentMode, PrimaryWindow},
 };
-use engine::{bitboard, parser, piece};
+use engine::{
+    bitboard::{self, Move},
+    parser, piece,
+};
 
 mod graphics;
 
@@ -19,7 +22,7 @@ fn main() {
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "Chess engine".into(),
-                        resolution: (1600.0, 900.0).into(),
+                        resolution: (1200.0, 900.0).into(),
                         resizable: false,
                         present_mode: PresentMode::AutoNoVsync,
                         ..default()
@@ -52,7 +55,7 @@ fn main() {
 
 fn board_action_detection_system(
     mouse: Res<ButtonInput<MouseButton>>,
-    cursor_world_coords: Res<CursorWorldCoords>,
+    cursor_position: Res<CursorWorldCoords>,
     mut evw_piece_grab: EventWriter<PieceGrabbedEvent>,
     mut evw_piece_dropped: EventWriter<PieceDroppedEvent>,
     qy_board: Query<&Board>,
@@ -60,26 +63,53 @@ fn board_action_detection_system(
     let board = qy_board.single();
 
     if mouse.just_pressed(MouseButton::Left) {
-        info!(
-            "left mouse just pressed at position {}",
-            cursor_world_coords.0,
-        );
-        evw_piece_grab.send(PieceGrabbedEvent { board_index: 12 });
+        info!("Left mouse just pressed at position {}", cursor_position.0,);
+        if let Some(index) = board.index_at(cursor_position.0) {
+            info!("Clicked square with index {}", index);
+            if board.bitboard.at(index).is_some() {
+                evw_piece_grab.send(PieceGrabbedEvent { board_index: index });
+            }
+        }
     }
 
     if mouse.just_released(MouseButton::Left) {
-        info!("left mouse just released");
-        evw_piece_dropped.send(PieceDroppedEvent);
+        info!("Left mouse just released at position {}", cursor_position.0);
+        evw_piece_dropped.send(PieceDroppedEvent {
+            board_index: board.index_at(cursor_position.0),
+        });
     }
 }
 
 fn drop_event_listener(
     mut grab_tool: ResMut<GrabToolState>,
-    mut evr_piece_grab: EventReader<PieceDroppedEvent>,
+    mut evr_piece_drop: EventReader<PieceDroppedEvent>,
+    mut qy_piece: Query<(&mut Piece, &mut Transform)>,
+    mut qy_window: Query<&mut Window, With<PrimaryWindow>>,
+    mut qy_board: Query<&mut Board>,
 ) {
-    for _ev in evr_piece_grab.read() {
-        grab_tool.dragged_piece_id = None;
-        info!("piece dropped");
+    for ev in evr_piece_drop.read() {
+        if let Some(piece_entity) = grab_tool.dragged_piece_id {
+            if let Ok((mut piece, mut transform)) = qy_piece.get_mut(piece_entity) {
+                if let Some(index) = ev.board_index {
+                    let mut board = qy_board.single_mut();
+                    // TODO: Check if move is legal
+                    board.bitboard.make_move(Move {
+                        origin: bitboard::Square { index: piece.index as u32 },
+                        target: bitboard::Square { index: index as u32 },
+                    });
+                    let coords = board.position_at(index);
+                    transform.scale = Vec3::splat(1.0);
+                    transform.translation = Vec3::new(coords.x, coords.y, 0.1);
+                    piece.index = index;
+                } else {
+                    // Go back to original square if the piece was not dropped in any
+                    // of the board's squares.
+                    *transform = grab_tool.dragged_piece_orig_transform;
+                }
+            }
+            grab_tool.dragged_piece_id = None;
+            qy_window.single_mut().cursor.icon = CursorIcon::Default;
+        }
     }
 }
 
@@ -87,12 +117,16 @@ fn grab_event_listener(
     mut grab_tool: ResMut<GrabToolState>,
     mut evr_piece_grab: EventReader<PieceGrabbedEvent>,
     mut qy_piece: Query<(Entity, &mut Transform, &Piece)>,
+    mut qy_window: Query<&mut Window, With<PrimaryWindow>>,
 ) {
     for ev in evr_piece_grab.read() {
         for (e, mut t, p) in qy_piece.iter_mut() {
-            if p.index == ev.board_index as usize {
+            if p.index == ev.board_index {
                 grab_tool.dragged_piece_id = Some(e);
+                grab_tool.dragged_piece_orig_transform = *t;
                 t.scale = Vec3::splat(1.2);
+                let mut window = qy_window.single_mut();
+                window.cursor.icon = CursorIcon::Grabbing;
             }
         }
     }
@@ -107,7 +141,7 @@ fn follow_cursor(
     if let Some(piece_entity) = grab_tool.dragged_piece_id {
         if let Ok(mut transform) = qy_piece.get_mut(piece_entity) {
             let board_transform = qy_board.single();
-            let cursor = vec3(cursor_world_coords.0.x, cursor_world_coords.0.y, 0.1);
+            let cursor = vec3(cursor_world_coords.0.x, cursor_world_coords.0.y, 0.2);
             transform.translation = cursor - board_transform.translation();
         }
     }
@@ -115,32 +149,62 @@ fn follow_cursor(
 
 #[derive(Event)]
 pub struct PieceGrabbedEvent {
-    pub board_index: u32,
+    pub board_index: usize,
 }
 
 #[derive(Event, Default)]
-pub struct PieceDroppedEvent;
+pub struct PieceDroppedEvent {
+    pub board_index: Option<usize>,
+}
 
 #[derive(Resource)]
 pub struct GrabToolState {
     dragged_piece_id: Option<Entity>,
+    dragged_piece_orig_transform: Transform,
 }
 
 impl Default for GrabToolState {
     fn default() -> Self {
         Self {
             dragged_piece_id: None,
+            dragged_piece_orig_transform: default(),
         }
     }
 }
 
 #[derive(Component)]
-struct Board {
+pub struct Board {
     // graphics
-    center: Vec2,
-    size: Vec2,
+    pub center: Vec2,
+    pub size: Vec2,
     // internal representation
-    bitboard: bitboard::Board,
+    pub bitboard: bitboard::Board,
+}
+
+impl Board {
+    /// Returns the index of the square located at `position` wrapped in `Some()`,
+    /// or `None` if the position (in world coordinates) is outside the board.
+    pub fn index_at(&self, position: Vec2) -> Option<usize> {
+        let p_min = self.center - self.size / 2.0;
+        let p_norm = position - p_min;
+        if p_norm.x >= 0.0 && p_norm.x < self.size.x && p_norm.y > 0.0 && p_norm.y < self.size.y {
+            let file = (p_norm.x / self.size.x * 8.0) as usize;
+            let rank = (p_norm.y / self.size.y * 8.0) as usize;
+            Some(rank * 8 + file)
+        } else {
+            None
+        }
+    }
+
+    /// Returns the coordinates relative to the board's center of the square with
+    /// index `index`.
+    pub fn position_at(&self, index: usize) -> Vec2 {
+        let file = index % 8;
+        let rank = index / 8;
+        let square_size = self.size / 8.0;
+        let first_square = Vec2::ZERO - (self.size - square_size) / 2.0;
+        first_square + vec2(square_size.x * file as f32, square_size.y * rank as f32)
+    }
 }
 
 #[derive(Component)]
