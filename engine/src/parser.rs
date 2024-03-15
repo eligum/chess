@@ -2,7 +2,7 @@
 //!
 //! TODO: Implement PGN and possibly EPD
 
-use crate::bitboard::{Board, CastleRights};
+use crate::board::{Board, CastleRights};
 use crate::piece::{Color, Piece};
 
 pub const STARTING_POSITION_FEN: &'static str =
@@ -80,7 +80,7 @@ pub fn load_position_from_fen(fen: &str) -> Result<Board, String> {
         }
     }
 
-    Ok(Board::from_array(&pieces, castling_rights, color_to_move))
+    Ok(Board::from_array(pieces, castling_rights, color_to_move))
 }
 
 pub fn store_position_as_fen(_board: &Board) -> Result<String, String> {

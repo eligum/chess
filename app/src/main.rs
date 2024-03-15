@@ -5,7 +5,7 @@ use bevy::{
     window::{CursorGrabMode, PresentMode, PrimaryWindow},
 };
 use engine::{
-    bitboard::{self, Move},
+    board::{self, Move},
     parser, piece,
 };
 
@@ -94,8 +94,8 @@ fn drop_event_listener(
                     let mut board = qy_board.single_mut();
                     // TODO: Check if move is legal
                     board.bitboard.make_move(Move {
-                        origin: bitboard::Square { index: piece.index as u32 },
-                        target: bitboard::Square { index: index as u32 },
+                        origin: board::Square { index: piece.index as u32 },
+                        target: board::Square { index: index as u32 },
                     });
                     let coords = board.position_at(index);
                     transform.scale = Vec3::splat(1.0);
@@ -159,8 +159,8 @@ pub struct PieceDroppedEvent {
 
 #[derive(Resource)]
 pub struct GrabToolState {
-    dragged_piece_id: Option<Entity>,
-    dragged_piece_orig_transform: Transform,
+    pub dragged_piece_id: Option<Entity>,
+    pub dragged_piece_orig_transform: Transform,
 }
 
 impl Default for GrabToolState {
@@ -178,7 +178,7 @@ pub struct Board {
     pub center: Vec2,
     pub size: Vec2,
     // internal representation
-    pub bitboard: bitboard::Board,
+    pub bitboard: board::Board,
 }
 
 impl Board {
@@ -336,7 +336,7 @@ fn spawn_board(mut commands: Commands, graphics: Res<Graphics>) {
             Board {
                 center: board_center,
                 size: board_size,
-                bitboard: bitboard::Board::new(),
+                bitboard: board::Board::new(),
             },
             SpatialBundle {
                 transform: Transform::from_xyz(board_center.x, board_center.y, 0.0),
