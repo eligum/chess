@@ -5,6 +5,9 @@ members = [
   "app",
   "engine",
 ]
+default-members = [
+  "engine",
+]
 
 [profile.release]
 lto = "thin"
