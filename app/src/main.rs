@@ -2,7 +2,7 @@ use crate::graphics::*;
 use bevy::{
     math::{vec2, vec3},
     prelude::*,
-    window::{CursorGrabMode, PresentMode, PrimaryWindow},
+    window::{PresentMode, PrimaryWindow},
 };
 use engine::{
     board::{self, Move},
@@ -94,8 +94,12 @@ fn drop_event_listener(
                     let mut board = qy_board.single_mut();
                     // TODO: Check if move is legal
                     board.bitboard.make_move(Move {
-                        origin: board::Square { index: piece.index as u32 },
-                        target: board::Square { index: index as u32 },
+                        origin: board::Square {
+                            index: piece.index as u32,
+                        },
+                        target: board::Square {
+                            index: index as u32,
+                        },
                     });
                     let coords = board.position_at(index);
                     transform.scale = Vec3::splat(1.0);

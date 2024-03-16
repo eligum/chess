@@ -2,20 +2,21 @@
 
 use std::fmt;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Color {
     White,
     Black,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[repr(u8)]
 pub enum Piece {
-    Pawn(Color),
-    Knight(Color),
-    Bishop(Color),
-    Rook(Color),
-    Queen(Color),
-    King(Color),
+    Pawn(Color) = 0,
+    Knight(Color) = 1,
+    Bishop(Color) = 2,
+    Rook(Color) = 3,
+    Queen(Color) = 4,
+    King(Color) = 5,
 }
 
 impl Piece {
