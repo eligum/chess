@@ -27,6 +27,18 @@ impl Piece {
             _ => false,
         }
     }
+
+    /// Returns the color of the piece.
+    pub fn color(self) -> Color {
+        match self {
+            Piece::Pawn(c) => c,
+            Piece::Knight(c) => c,
+            Piece::Bishop(c) => c,
+            Piece::Rook(c) => c,
+            Piece::Queen(c) => c,
+            Piece::King(c) => c,
+        }
+    }
 }
 
 impl fmt::Display for Piece {

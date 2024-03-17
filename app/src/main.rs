@@ -22,7 +22,7 @@ fn main() {
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "Chess engine".into(),
-                        resolution: (1200.0, 900.0).into(),
+                        resolution: (900.0, 900.0).into(),
                         resizable: false,
                         present_mode: PresentMode::AutoNoVsync,
                         ..default()
@@ -48,6 +48,7 @@ fn main() {
                 grab_event_listener,
                 drop_event_listener,
                 follow_cursor,
+                color_occupied_squares,
             ),
         )
         .run();
@@ -63,7 +64,7 @@ fn board_action_detection_system(
     let board = qy_board.single();
 
     if mouse.just_pressed(MouseButton::Left) {
-        info!("Left mouse just pressed at position {}", cursor_position.0,);
+        //info!("Left mouse just pressed at position {}", cursor_position.0,);
         if let Some(index) = board.index_at(cursor_position.0) {
             info!("Clicked square with index {}", index);
             if board.bitboard.at(index).is_some() {
@@ -73,7 +74,7 @@ fn board_action_detection_system(
     }
 
     if mouse.just_released(MouseButton::Left) {
-        info!("Left mouse just released at position {}", cursor_position.0);
+        //info!("Left mouse just released at position {}", cursor_position.0);
         evw_piece_dropped.send(PieceDroppedEvent {
             board_index: board.index_at(cursor_position.0),
         });
@@ -81,35 +82,55 @@ fn board_action_detection_system(
 }
 
 fn drop_event_listener(
+    mut commands: Commands,
     mut grab_tool: ResMut<GrabToolState>,
     mut evr_piece_drop: EventReader<PieceDroppedEvent>,
-    mut qy_piece: Query<(&mut Piece, &mut Transform)>,
+    mut qy_piece: Query<(Entity, &mut Piece, &mut Transform)>,
     mut qy_window: Query<&mut Window, With<PrimaryWindow>>,
     mut qy_board: Query<&mut Board>,
 ) {
     for ev in evr_piece_drop.read() {
-        if let Some(piece_entity) = grab_tool.dragged_piece_id {
-            if let Ok((mut piece, mut transform)) = qy_piece.get_mut(piece_entity) {
-                if let Some(index) = ev.board_index {
+        info!("{:?}", ev);
+        // Check if a piece is being grabbed.
+        if let Some(piece_id_o) = grab_tool.dragged_piece_id {
+            if let Some(index_t) = ev.board_index {
+                // Get id of the possibly already existing piece at the target square.
+                let target_square = qy_piece
+                    .iter()
+                    .find(|(_, p, _)| p.index == index_t)
+                    .map(|(id, _, _)| id);
+                // Get components of the piece at the origin square.
+                if let Ok((_, mut piece, mut transform)) = qy_piece.get_mut(piece_id_o) {
                     let mut board = qy_board.single_mut();
-                    // TODO: Check if move is legal
-                    board.bitboard.make_move(Move {
-                        origin: board::Square {
-                            index: piece.index as u32,
-                        },
-                        target: board::Square {
-                            index: index as u32,
-                        },
-                    });
-                    let coords = board.position_at(index);
-                    transform.scale = Vec3::splat(1.0);
-                    transform.translation = Vec3::new(coords.x, coords.y, 0.1);
-                    piece.index = index;
+                    // TODO: Check if move is legal.
+                    if board
+                        .bitboard
+                        .make_move(Move::from_indices(piece.index, index_t))
+                    {
+                        let coords = board.position_at(index_t);
+                        transform.scale = Vec3::splat(1.0);
+                        transform.translation = Vec3::new(coords.x, coords.y, 0.1);
+                        piece.index = index_t;
+                        // Since the move was applied successfully, if the target square
+                        // had a piece, that means the move was a capture so the captured
+                        // piece must be despawned.
+                        if let Some(piece_id_t) = target_square {
+                            commands.entity(piece_id_t).despawn();
+                        }
+                    } else {
+                        // Go back to the original square because the move did not update
+                        // the state of the board.
+                        *transform = grab_tool.dragged_piece_orig_transform;
+                    }
                 } else {
-                    // Go back to original square if the piece was not dropped in any
-                    // of the board's squares.
-                    *transform = grab_tool.dragged_piece_orig_transform;
+                    warn!("No entity with 'Piece' component and id {:?}", piece_id_o);
                 }
+            } else if let Ok((_, _, mut transform)) = qy_piece.get_mut(piece_id_o) {
+                // Go back to original square if the piece was not dropped in any
+                // of the board's squares.
+                *transform = grab_tool.dragged_piece_orig_transform;
+            } else {
+                warn!("No entity with 'Piece' component and id {:?}", piece_id_o);
             }
             grab_tool.dragged_piece_id = None;
             qy_window.single_mut().cursor.icon = CursorIcon::Default;
@@ -124,6 +145,7 @@ fn grab_event_listener(
     mut qy_window: Query<&mut Window, With<PrimaryWindow>>,
 ) {
     for ev in evr_piece_grab.read() {
+        info!("{:?}", ev);
         for (e, mut t, p) in qy_piece.iter_mut() {
             if p.index == ev.board_index {
                 grab_tool.dragged_piece_id = Some(e);
@@ -151,12 +173,12 @@ fn follow_cursor(
     }
 }
 
-#[derive(Event)]
+#[derive(Event, Debug)]
 pub struct PieceGrabbedEvent {
     pub board_index: usize,
 }
 
-#[derive(Event, Default)]
+#[derive(Event, Default, Debug)]
 pub struct PieceDroppedEvent {
     pub board_index: Option<usize>,
 }
@@ -223,6 +245,33 @@ struct Piece {
 
 #[derive(Resource, Default)]
 struct CursorWorldCoords(Vec2);
+
+fn color_occupied_squares(
+    graphics: Res<Graphics>,
+    qy_board: Query<&Board>,
+    mut qy_squares: Query<(&Square, &mut Sprite)>,
+) {
+    let (light_color, dark_color) = graphics.board_theme;
+    let tint = vec3(0.3, 0.3, 2.0);
+    let board = qy_board.single();
+    for (square, mut sprite) in qy_squares.iter_mut() {
+        let file = square.index % 8;
+        let rank = square.index / 8;
+        if let Some(_) = board.bitboard.at(square.index) {
+            if (file + rank) % 2 == 0 {
+                sprite.color = dark_color * tint;
+            } else {
+                sprite.color = light_color * tint;
+            }
+        } else {
+            if (file + rank) % 2 == 0 {
+                sprite.color = dark_color;
+            } else {
+                sprite.color = light_color;
+            }
+        }
+    }
+}
 
 fn spawn_camera(mut commands: Commands, qy_window: Query<&Window, With<PrimaryWindow>>) {
     let window = qy_window.single();
@@ -333,7 +382,7 @@ fn spawn_board(mut commands: Commands, graphics: Res<Graphics>) {
 
     let square_size = Vec2::splat(BOARD_SIZE / 8.0);
     let board_size = Vec2::splat(BOARD_SIZE);
-    let board_center = vec2(200.0, 0.0);
+    let board_center = vec2(50.0, 0.0);
 
     let board_id = commands
         .spawn((

@@ -130,10 +130,10 @@ impl Move {
     ///
     /// This function does not check wether the indices are within bounds of the board,
     /// so you could end up with an impossible move.
-    pub fn from_indices(origin: u32, target: u32) -> Self {
+    pub fn from_indices(origin: usize, target: usize) -> Self {
         Self {
-            origin: Square { index: origin },
-            target: Square { index: target },
+            origin: Square { index: origin as u32 },
+            target: Square { index: target as u32 },
         }
     }
 }
@@ -305,6 +305,13 @@ impl Board {
         //     .and_then(|piece| Some(piece))
 
         let mask = 1 << index;
+
+        // if mask & self.get_bitboard(Piece::Queen(Color::White)) > 0 {
+        //     return Some(Piece::Queen(Color::White));
+        // } else {
+        //     return None;
+        // }
+
         if mask & self.get_bitboard(Piece::Pawn(Color::White)) > 0 {
             Some(Piece::Pawn(Color::White))
         } else if mask & self.get_bitboard(Piece::Knight(Color::White)) > 0 {
@@ -338,11 +345,35 @@ impl Board {
         todo!()
     }
 
-    pub fn make_move(&mut self, mov: Move) {
-        if let Some(piece) = self.squares[mov.origin.index as usize] {
-            self.piece_bitboards[Self::bitboard_index(piece)] ^=
-                (1 << mov.origin.index) | (1 << mov.target.index);
+    /// Applies a move and returns `true` if the move updated the state of the board.
+    #[rustfmt::skip]
+    pub fn make_move(&mut self, mov: Move) -> bool {
+        if mov.origin == mov.target {
+            return false;
         }
+        let origin = mov.origin.index as usize;
+        let target = mov.target.index as usize;
+        if let Some(piece_o) = self.at(origin) {
+            if let Some(piece_t) = self.at(target) {
+                if piece_o.color() == piece_t.color() {
+                    return false;
+                }
+                self.piece_bitboards[Self::bitboard_index(piece_o)] ^= (1 << origin) | (1 << target);
+                self.piece_bitboards[Self::bitboard_index(piece_t)] ^= 1 << target;
+
+                self.squares[origin] = None;
+                self.squares[target] = Some(piece_o);
+            } else {
+                self.piece_bitboards[Self::bitboard_index(piece_o)] ^= (1 << origin) | (1 << target);
+
+                self.squares[origin] = None;
+                self.squares[target] = Some(piece_o);
+            }
+            println!("{:?} bitboard: {:08x}", piece_o, self.get_bitboard(piece_o));
+        } else {
+            return false;
+        }
+        true
     }
 
     pub fn undo_move(&mut self, mov: Move) {
@@ -362,6 +393,41 @@ impl Board {
         match color {
             Color::White => self.castling_rights.contains(CastleRights::WhiteQS),
             Color::Black => self.castling_rights.contains(CastleRights::BlackQS),
+        }
+    }
+
+    pub fn iter(&self) -> BoardIter<'_> {
+        BoardIter {
+            board: self,
+            index: 0,
+        }
+    }
+}
+
+impl<'a> IntoIterator for &'a Board {
+    type Item = Option<Piece>;
+    type IntoIter = BoardIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+pub struct BoardIter<'a> {
+    board: &'a Board,
+    index: usize,
+}
+
+impl<'a> Iterator for BoardIter<'a> {
+    type Item = Option<Piece>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index > 63 {
+            None
+        } else {
+            let item = Some(self.board.at(self.index));
+            self.index += 1;
+            item
         }
     }
 }
