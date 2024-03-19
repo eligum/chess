@@ -16,8 +16,8 @@ pub struct Board {
     // pieces
     piece_bitboards: [u64; 12],
     // position information
-    color_to_move: Color,
-    castling_rights: CastleRights,
+    pub(crate) color_to_move: Color,
+    pub(crate) castling_rights: CastleRights,
     // auxiliary structures
     squares: [Option<Piece>; 64],
 }
@@ -339,6 +339,12 @@ impl Board {
         } else {
             None
         }
+    }
+
+    /// Returns the color of the pieces whose turn is to play.
+    #[inline]
+    pub fn color_to_move(&self) -> Color {
+        self.color_to_move
     }
 
     pub fn get_legal_moves(&self, color_to_move: Color) -> Vec<Move> {

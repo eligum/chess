@@ -67,8 +67,12 @@ fn board_action_detection_system(
         //info!("Left mouse just pressed at position {}", cursor_position.0,);
         if let Some(index) = board.index_at(cursor_position.0) {
             info!("Clicked square with index {}", index);
-            if board.bitboard.at(index).is_some() {
-                evw_piece_grab.send(PieceGrabbedEvent { board_index: index });
+            if let Some(piece) = board.bitboard.at(index) {
+                if piece.color() == board.bitboard.color_to_move() {
+                    evw_piece_grab.send(PieceGrabbedEvent { board_index: index });
+                } else {
+                    // TODO: Maybe a capture if a piece was selected
+                }
             }
         }
     }
@@ -102,10 +106,16 @@ fn drop_event_listener(
                 // Get components of the piece at the origin square.
                 if let Ok((_, mut piece, mut transform)) = qy_piece.get_mut(piece_id_o) {
                     let mut board = qy_board.single_mut();
+                    let index_o = piece.index;
+                    // Whether the move can be successfully applied or not, as long as the
+                    // origin and target squares are different, we clear the selected piece.
+                    if index_o != index_t {
+                        grab_tool.selected_piece_id = None;
+                    }
                     // TODO: Check if move is legal.
                     if board
                         .bitboard
-                        .make_move(Move::from_indices(piece.index, index_t))
+                        .make_move(Move::from_indices(index_o, index_t))
                     {
                         let coords = board.position_at(index_t);
                         transform.scale = Vec3::splat(1.0);
@@ -126,8 +136,9 @@ fn drop_event_listener(
                     warn!("No entity with 'Piece' component and id {:?}", piece_id_o);
                 }
             } else if let Ok((_, _, mut transform)) = qy_piece.get_mut(piece_id_o) {
-                // Go back to original square if the piece was not dropped in any
-                // of the board's squares.
+                // Piece was dropped out of bounds of the board so we go back to
+                // the original square and clear the currently selected piece.
+                grab_tool.selected_piece_id = None;
                 *transform = grab_tool.dragged_piece_orig_transform;
             } else {
                 warn!("No entity with 'Piece' component and id {:?}", piece_id_o);
@@ -148,6 +159,8 @@ fn grab_event_listener(
         info!("{:?}", ev);
         for (e, mut t, p) in qy_piece.iter_mut() {
             if p.index == ev.board_index {
+                // Color valid target squares for the grabbed piece.
+                grab_tool.selected_piece_id = Some(e);
                 grab_tool.dragged_piece_id = Some(e);
                 grab_tool.dragged_piece_orig_transform = *t;
                 t.scale = Vec3::splat(1.2);
@@ -187,6 +200,7 @@ pub struct PieceDroppedEvent {
 pub struct GrabToolState {
     pub dragged_piece_id: Option<Entity>,
     pub dragged_piece_orig_transform: Transform,
+    pub selected_piece_id: Option<Entity>,
 }
 
 impl Default for GrabToolState {
@@ -194,6 +208,7 @@ impl Default for GrabToolState {
         Self {
             dragged_piece_id: None,
             dragged_piece_orig_transform: default(),
+            selected_piece_id: None,
         }
     }
 }
