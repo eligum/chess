@@ -63,6 +63,7 @@ fn board_action_detection_system(
 ) {
     let board = qy_board.single();
 
+    // Grab/select piece
     if mouse.just_pressed(MouseButton::Left) {
         //info!("Left mouse just pressed at position {}", cursor_position.0,);
         if let Some(index) = board.index_at(cursor_position.0) {
@@ -77,10 +78,18 @@ fn board_action_detection_system(
         }
     }
 
+    // Drop grabbed piece
     if mouse.just_released(MouseButton::Left) {
         //info!("Left mouse just released at position {}", cursor_position.0);
         evw_piece_dropped.send(PieceDroppedEvent {
             board_index: board.index_at(cursor_position.0),
+        });
+    }
+
+    // Cancel selection or grabbing action
+    if mouse.just_pressed(MouseButton::Right) {
+        evw_piece_dropped.send(PieceDroppedEvent {
+            board_index: None,
         });
     }
 }
@@ -154,18 +163,25 @@ fn grab_event_listener(
     mut evr_piece_grab: EventReader<PieceGrabbedEvent>,
     mut qy_piece: Query<(Entity, &mut Transform, &Piece)>,
     mut qy_window: Query<&mut Window, With<PrimaryWindow>>,
+    mut qy_squares: Query<(&Square, &mut Sprite)>,
+    qy_board: Query<&Board>,
 ) {
     for ev in evr_piece_grab.read() {
         info!("{:?}", ev);
-        for (e, mut t, p) in qy_piece.iter_mut() {
-            if p.index == ev.board_index {
-                // Color valid target squares for the grabbed piece.
-                grab_tool.selected_piece_id = Some(e);
-                grab_tool.dragged_piece_id = Some(e);
-                grab_tool.dragged_piece_orig_transform = *t;
-                t.scale = Vec3::splat(1.2);
+        for (entity, mut transform, piece) in qy_piece.iter_mut() {
+            if piece.index == ev.board_index {
+                grab_tool.selected_piece_id = Some(entity);
+                grab_tool.dragged_piece_id = Some(entity);
+                grab_tool.dragged_piece_orig_transform = *transform;
+                transform.scale = Vec3::splat(1.2);
                 let mut window = qy_window.single_mut();
                 window.cursor.icon = CursorIcon::Grabbing;
+                // Color valid target squares for the grabbed piece.
+                let board = qy_board.single();
+                let moves = board.bitboard.compute_legal_moves_for(piece.index);
+                for (square, &mut sprite) in qy_squares.iter_mut() {
+
+                }
             }
         }
     }

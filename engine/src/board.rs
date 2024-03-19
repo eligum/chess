@@ -132,8 +132,12 @@ impl Move {
     /// so you could end up with an impossible move.
     pub fn from_indices(origin: usize, target: usize) -> Self {
         Self {
-            origin: Square { index: origin as u32 },
-            target: Square { index: target as u32 },
+            origin: Square {
+                index: origin as u32,
+            },
+            target: Square {
+                index: target as u32,
+            },
         }
     }
 }
@@ -347,6 +351,10 @@ impl Board {
         self.color_to_move
     }
 
+    pub fn compute_legal_moves_for(index: usize) -> Vec<Move> {
+        todo!()
+    }
+
     pub fn get_legal_moves(&self, color_to_move: Color) -> Vec<Move> {
         todo!()
     }
@@ -375,6 +383,11 @@ impl Board {
                 self.squares[origin] = None;
                 self.squares[target] = Some(piece_o);
             }
+            // Change whose turn it is since a move has been successfully applied
+            self.color_to_move = match self.color_to_move {
+                Color::White => Color::Black,
+                Color::Black => Color::White,
+            };
             println!("{:?} bitboard: {:08x}", piece_o, self.get_bitboard(piece_o));
         } else {
             return false;
