@@ -18,6 +18,7 @@ pub struct Board {
     // position information
     pub(crate) color_to_move: Color,
     pub(crate) castling_rights: CastleRights,
+    pub(crate) en_passant_square: Option<usize>,
     // auxiliary structures
     squares: [Option<Piece>; 64],
 }
@@ -183,6 +184,7 @@ impl Board {
             ],
             castling_rights: CastleRights::All,
             color_to_move: Color::White,
+            en_passant_square: None,
             squares: board![
                 wR wN wB wQ wK wB wN wR
                 wP wP wP wP wP wP wP wP
@@ -202,6 +204,7 @@ impl Board {
             piece_bitboards: [0; 12],
             color_to_move: Color::White,
             castling_rights: CastleRights::None,
+            en_passant_square: None,
             squares: [None; 64],
         }
     }
@@ -248,11 +251,13 @@ impl Board {
         squares: [Option<Piece>; 64],
         castling_rights: CastleRights,
         color_to_move: Color,
+        en_passant_square: Option<usize>,
     ) -> Self {
         let mut board = Self {
             piece_bitboards: [0; 12],
             castling_rights,
             color_to_move,
+            en_passant_square,
             squares,
         };
         for (index, square) in board.squares.into_iter().enumerate() {
@@ -351,7 +356,7 @@ impl Board {
         self.color_to_move
     }
 
-    pub fn compute_legal_moves_for(index: usize) -> Vec<Move> {
+    pub fn compute_legal_moves_for(&self, index: usize) -> Vec<Move> {
         todo!()
     }
 

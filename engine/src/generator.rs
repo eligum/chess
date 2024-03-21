@@ -65,6 +65,13 @@ impl<'a> MoveGen for MoveGenerator<'a> {
                 if piece.color() == self.board.color_to_move {
                     if piece.is_slider() {
                         self.generate_sliding_moves(index, piece, &mut moves);
+                    } else {
+                        match piece {
+                            Piece::Pawn(_) => {},
+                            Piece::Knight(_) => {},
+                            Piece::King(_) => {},
+                            _ => unreachable!(),
+                        }
                     }
                 }
             }

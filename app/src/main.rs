@@ -179,7 +179,7 @@ fn grab_event_listener(
                 // Color valid target squares for the grabbed piece.
                 let board = qy_board.single();
                 let moves = board.bitboard.compute_legal_moves_for(piece.index);
-                for (square, &mut sprite) in qy_squares.iter_mut() {
+                for (square, mut sprite) in qy_squares.iter_mut() {
 
                 }
             }

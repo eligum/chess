@@ -80,7 +80,56 @@ pub fn load_position_from_fen(fen: &str) -> Result<Board, String> {
         }
     }
 
-    Ok(Board::from_array(pieces, castling_rights, color_to_move))
+    let mut en_passant_square = None;
+    let mut en_passant_field = fen_fields
+        .next()
+        .ok_or(format!("Missing fourth field of FEN"))?
+        .chars();
+    if let Some(letter) = en_passant_field.next() {
+        if letter != '-' {
+            let file = match letter {
+                'a' | 'A' => 0,
+                'b' | 'B' => 1,
+                'c' | 'C' => 2,
+                'd' | 'D' => 3,
+                'e' | 'E' => 4,
+                'f' | 'F' => 5,
+                'g' | 'G' => 6,
+                'h' | 'H' => 7,
+                _ => {
+                    return Err(format!(
+                        "Unknown file coordinate '{}'. Expected a, b, c, d, e, f, g or h",
+                        letter
+                    ))
+                }
+            };
+            if let Some(digit) = en_passant_field.next() {
+                let rank = match digit.to_digit(10) {
+                    Some(x) if 1 <= x && x <= 8 => (x - 1) as usize,
+                    _ => {
+                        return Err(format!(
+                            "Unknown rank coordinate '{}'. Expected 1, 2, 3, 4, 5, 6, 7 or 8",
+                            digit
+                        ))
+                    }
+                };
+                en_passant_square = Some(rank * 8 + file);
+            }
+        }
+    }
+
+    let halfmove_clock = fen_fields
+        .next()
+        .ok_or(format!("Missing fifth field of FEN"))?
+        .parse::<u32>()
+        .unwrap(); // TODO: Convert parsing error to String.
+
+    Ok(Board::from_array(
+        pieces,
+        castling_rights,
+        color_to_move,
+        en_passant_square,
+    ))
 }
 
 pub fn store_position_as_fen(_board: &Board) -> Result<String, String> {
