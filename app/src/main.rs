@@ -11,7 +11,7 @@ use engine::{
 
 mod graphics;
 
-const BOARD_SIZE: f32 = 720.0;
+const BOARD_SIZE: f32 = 640.0;
 
 fn main() {
     App::new()
@@ -22,7 +22,7 @@ fn main() {
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "Chess engine".into(),
-                        resolution: (900.0, 900.0).into(),
+                        resolution: (800.0, 800.0).into(),
                         resizable: false,
                         present_mode: PresentMode::AutoNoVsync,
                         ..default()
@@ -413,7 +413,7 @@ fn spawn_board(mut commands: Commands, graphics: Res<Graphics>) {
 
     let square_size = Vec2::splat(BOARD_SIZE / 8.0);
     let board_size = Vec2::splat(BOARD_SIZE);
-    let board_center = vec2(50.0, 0.0);
+    let board_center = vec2(0.0, 0.0);
 
     let board_id = commands
         .spawn((

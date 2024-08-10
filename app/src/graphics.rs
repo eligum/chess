@@ -16,7 +16,7 @@ fn load_graphics(
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     // Piece assets
-    let texture_handle = asset_server.load("image/pieces_320x107.png");
+    let texture_handle = asset_server.load("app/image/pieces_320x107.png");
     let layout_handle = texture_atlas_layouts.add(TextureAtlasLayout::from_grid(
         Vec2::splat(106.5),
         6,

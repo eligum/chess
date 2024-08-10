@@ -11,6 +11,9 @@ path = "src/main.rs"
 # Local crates
 engine = { path = "../engine" }
 
+# Cross-compilation dependencies for bevy using MSVC
+blake3 = { version = "1.5", features = [ "pure" ] }
+
 # External crates
-bevy = { version = "0.13.0", features = ["dynamic_linking"] }
+bevy = { version = "0.13" }
 rand = "0.8.5"
