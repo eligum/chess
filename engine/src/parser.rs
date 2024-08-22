@@ -124,6 +124,12 @@ pub fn load_position_from_fen(fen: &str) -> Result<Board, String> {
         .parse::<u32>()
         .unwrap(); // TODO: Convert parsing error to String.
 
+    let fullmove_number = fen_fields
+        .next()
+        .ok_or(format!("Missing sixth field of FEN"))?
+        .parse::<u32>()
+        .unwrap(); // TODO: Convert parsing error to String.
+
     Ok(Board::from_array(
         pieces,
         castling_rights,

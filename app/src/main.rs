@@ -1,4 +1,5 @@
 use crate::graphics::*;
+use crate::ui::*;
 use bevy::{
     math::{vec2, vec3},
     prelude::*,
@@ -6,12 +7,12 @@ use bevy::{
 };
 use engine::{
     board::{self, Move},
+    generator::{self, MoveGen},
     parser, piece,
 };
 
 mod graphics;
-
-const BOARD_SIZE: f32 = 640.0;
+mod ui;
 
 fn main() {
     App::new()
@@ -32,20 +33,27 @@ fn main() {
                 .build(),
             asset_loading_plugin,
         ))
+        .insert_resource(MoveGenerator {
+            generator: generator::Naive::new(),
+        })
         .init_resource::<CursorWorldCoords>()
         .init_resource::<GrabToolState>()
         .add_event::<PieceGrabbedEvent>()
         .add_event::<PieceDroppedEvent>()
         .add_systems(
             Startup,
-            (spawn_camera, spawn_board, spawn_pieces.after(spawn_board)),
+            (
+                spawn_camera,
+                ui::spawn_board,
+                ui::spawn_pieces.after(ui::spawn_board),
+            ),
         )
         .add_systems(
             Update,
             (
                 cursor_position_system,
                 board_action_detection_system,
-                grab_event_listener,
+                grab_event_listener::<generator::Naive>,
                 drop_event_listener,
                 follow_cursor,
                 color_occupied_squares,
@@ -88,9 +96,7 @@ fn board_action_detection_system(
 
     // Cancel selection or grabbing action
     if mouse.just_pressed(MouseButton::Right) {
-        evw_piece_dropped.send(PieceDroppedEvent {
-            board_index: None,
-        });
+        evw_piece_dropped.send(PieceDroppedEvent { board_index: None });
     }
 }
 
@@ -158,14 +164,17 @@ fn drop_event_listener(
     }
 }
 
-fn grab_event_listener(
+fn grab_event_listener<G>(
     mut grab_tool: ResMut<GrabToolState>,
     mut evr_piece_grab: EventReader<PieceGrabbedEvent>,
     mut qy_piece: Query<(Entity, &mut Transform, &Piece)>,
     mut qy_window: Query<&mut Window, With<PrimaryWindow>>,
     mut qy_squares: Query<(&Square, &mut Sprite)>,
     qy_board: Query<&Board>,
-) {
+    move_gen: Res<MoveGenerator<G>>,
+) where
+    G: MoveGen + std::marker::Send + std::marker::Sync,
+{
     for ev in evr_piece_grab.read() {
         info!("{:?}", ev);
         for (entity, mut transform, piece) in qy_piece.iter_mut() {
@@ -178,10 +187,12 @@ fn grab_event_listener(
                 window.cursor.icon = CursorIcon::Grabbing;
                 // Color valid target squares for the grabbed piece.
                 let board = qy_board.single();
-                let moves = board.bitboard.compute_legal_moves_for(piece.index);
-                for (square, mut sprite) in qy_squares.iter_mut() {
+                let moves = move_gen.generator.generate_moves(&board.bitboard);
+                info!("{:?}", moves);
+                // let moves = board.bitboard.compute_legal_moves_for(piece.index);
+                // for (square, mut sprite) in qy_squares.iter_mut() {
 
-                }
+                // }
             }
         }
     }
@@ -229,49 +240,9 @@ impl Default for GrabToolState {
     }
 }
 
-#[derive(Component)]
-pub struct Board {
-    // graphics
-    pub center: Vec2,
-    pub size: Vec2,
-    // internal representation
-    pub bitboard: board::Board,
-}
-
-impl Board {
-    /// Returns the index of the square located at `position` wrapped in `Some()`,
-    /// or `None` if the position (in world coordinates) is outside the board.
-    pub fn index_at(&self, position: Vec2) -> Option<usize> {
-        let p_min = self.center - self.size / 2.0;
-        let p_norm = position - p_min;
-        if p_norm.x >= 0.0 && p_norm.x < self.size.x && p_norm.y > 0.0 && p_norm.y < self.size.y {
-            let file = (p_norm.x / self.size.x * 8.0) as usize;
-            let rank = (p_norm.y / self.size.y * 8.0) as usize;
-            Some(rank * 8 + file)
-        } else {
-            None
-        }
-    }
-
-    /// Returns the coordinates relative to the board's center of the square with
-    /// index `index`.
-    pub fn position_at(&self, index: usize) -> Vec2 {
-        let file = index % 8;
-        let rank = index / 8;
-        let square_size = self.size / 8.0;
-        let first_square = Vec2::ZERO - (self.size - square_size) / 2.0;
-        first_square + vec2(square_size.x * file as f32, square_size.y * rank as f32)
-    }
-}
-
-#[derive(Component)]
-struct Square {
-    index: usize,
-}
-
-#[derive(Component)]
-struct Piece {
-    index: usize,
+#[derive(Resource)]
+pub struct MoveGenerator<T: MoveGen + std::marker::Send + std::marker::Sync + 'static> {
+    pub generator: T,
 }
 
 #[derive(Resource, Default)]
@@ -328,145 +299,4 @@ fn cursor_position_system(
     {
         cursor_world_coords.0 = world_coords;
     }
-}
-
-fn spawn_pieces(
-    mut commands: Commands,
-    graphics: Res<Graphics>,
-    qy_board: Query<(Entity, &Board)>,
-) {
-    let (ref texture, ref layout) = graphics.piece_theme;
-    let (board_id, board) = qy_board.single();
-
-    let square_size = board.size / 8.0;
-    let first_square = Vec2::ZERO - (board.size - square_size) / 2.0;
-    let mut piece_ids: Vec<Entity> = Vec::with_capacity(32);
-
-    for rank in 0..8 {
-        for file in 0..8 {
-            if let Some(piece_type) = board.bitboard.at(rank * 8 + file) {
-                info!("At index {} found {:?}", rank * 8 + file, piece_type);
-                piece_ids.push(
-                    commands
-                        .spawn((
-                            Piece {
-                                index: rank * 8 + file,
-                            },
-                            SpriteSheetBundle {
-                                sprite: Sprite {
-                                    custom_size: Some(board.size / 8.0),
-                                    ..default()
-                                },
-                                transform: Transform {
-                                    translation: vec3(first_square.x, first_square.y, 0.0)
-                                        + vec3(
-                                            square_size.x * file as f32,
-                                            square_size.y * rank as f32,
-                                            0.0,
-                                        ),
-                                    ..default()
-                                },
-                                texture: texture.clone(),
-                                atlas: TextureAtlas {
-                                    layout: layout.clone(),
-                                    index: match piece_type {
-                                        piece::Piece::Pawn(color) => match color {
-                                            piece::Color::White => 5,
-                                            piece::Color::Black => 11,
-                                        },
-                                        piece::Piece::Knight(color) => match color {
-                                            piece::Color::White => 3,
-                                            piece::Color::Black => 9,
-                                        },
-                                        piece::Piece::Bishop(color) => match color {
-                                            piece::Color::White => 2,
-                                            piece::Color::Black => 8,
-                                        },
-                                        piece::Piece::Rook(color) => match color {
-                                            piece::Color::White => 4,
-                                            piece::Color::Black => 10,
-                                        },
-                                        piece::Piece::Queen(color) => match color {
-                                            piece::Color::White => 1,
-                                            piece::Color::Black => 7,
-                                        },
-                                        piece::Piece::King(color) => match color {
-                                            piece::Color::White => 0,
-                                            piece::Color::Black => 6,
-                                        },
-                                    },
-                                },
-                                ..default()
-                            },
-                        ))
-                        .id(),
-                );
-            }
-        }
-    }
-
-    commands.entity(board_id).push_children(&piece_ids[..]);
-}
-
-fn spawn_board(mut commands: Commands, graphics: Res<Graphics>) {
-    let (light_squares_color, dark_squares_color) = graphics.board_theme;
-
-    let square_size = Vec2::splat(BOARD_SIZE / 8.0);
-    let board_size = Vec2::splat(BOARD_SIZE);
-    let board_center = vec2(0.0, 0.0);
-
-    let board_id = commands
-        .spawn((
-            Board {
-                center: board_center,
-                size: board_size,
-                bitboard: board::Board::new(),
-            },
-            SpatialBundle {
-                transform: Transform::from_xyz(board_center.x, board_center.y, 0.0),
-                ..default()
-            },
-        ))
-        .id();
-
-    // NOTE: Child transforms are relative to their parent's transform. Since in this
-    // hierarchy board squares are children of a board entity, their transform remains
-    // the same no matter the board position.
-    let first_square = Vec2::ZERO - (board_size - square_size) / 2.0;
-    let mut square_ids = [Entity::from_raw(0); 64];
-
-    for rank in 0..8 {
-        for file in 0..8 {
-            let index = rank * 8 + file;
-            square_ids[index] = commands
-                .spawn((
-                    Square { index },
-                    SpriteBundle {
-                        transform: Transform {
-                            translation: vec3(first_square.x, first_square.y, 0.0)
-                                + vec3(
-                                    square_size.x * file as f32,
-                                    square_size.y * rank as f32,
-                                    0.0,
-                                ),
-                            ..default()
-                        },
-                        sprite: Sprite {
-                            color: if (rank + file) % 2 == 0 {
-                                dark_squares_color
-                            } else {
-                                light_squares_color
-                            },
-                            custom_size: Some(square_size),
-                            ..default()
-                        },
-                        ..default()
-                    },
-                ))
-                .id();
-        }
-    }
-
-    // Construct parent/child hierarchy
-    commands.entity(board_id).push_children(&square_ids[..]);
 }

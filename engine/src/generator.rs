@@ -3,68 +3,79 @@ use crate::init::*;
 use crate::piece::Piece;
 
 pub trait MoveGen {
-    fn generate_moves(&self) -> Vec<Move>;
+    fn generate_moves(&self, board: &Board) -> Vec<Move>;
 }
 
-pub struct MoveGenerator<'a> {
-    board: &'a Board,
-    squares_to_edge: [[usize; 8]; 64],
+pub struct Naive {
+    squares_to_edge: SquaresToEdge,
 }
 
-impl<'a> MoveGenerator<'a> {
-    pub fn new(board: &'a Board) -> Self {
+impl Naive {
+    pub fn new() -> Self {
         Self {
-            board,
             squares_to_edge: compute_squares_to_edge(),
         }
     }
 
-    /// Public becuase of benchmarking.
+    /// Public because of benchmarking.
     pub(crate) fn generate_sliding_moves(
         &self,
+        board: &Board,
         index_o: usize,
         piece_o: Piece,
         moves: &mut Vec<Move>,
     ) {
-        let offsets = match piece_o {
-            Piece::Bishop(_) => &DIRECTION_OFFSETS[4..8],
-            Piece::Rook(_) => &DIRECTION_OFFSETS[0..4],
-            Piece::Queen(_) => &DIRECTION_OFFSETS[0..8],
+        let directions = match piece_o {
+            Piece::Bishop(_) => &MOVE_DIRECTIONS[4..8],
+            Piece::Rook(_) => &MOVE_DIRECTIONS[0..4],
+            Piece::Queen(_) => &MOVE_DIRECTIONS[0..8],
             _ => {
                 println!("ERROR: Piece is not slider.");
                 return;
             }
         };
 
-        for (i, &offset) in offsets.iter().enumerate() {
-            for n in 1..=(self.squares_to_edge[index_o][i]) {
-                let index_t = index_o as i32 + offset * n as i32;
-                if let Some(piece_t) = self.board.at(index_t as usize) {
-                    // If there is a piece on the target square and it is of the opposite
-                    // color, add the move (capture) and skip to the next direction.
+        for &direction in directions {
+            println!("{direction:?}");
+            for n in 1..=(self.squares_to_edge[index_o][direction]) {
+                let index_t = index_o as i32 + direction.offset() * n as i32;
+                println!("\t---");
+                println!("\tOrigin: {index_o}");
+                println!("\tN: {n}");
+                println!("\tOffset: {}", direction.offset());
+                println!("\tTarget: {index_t}");
+                // If there is a piece on the target square...
+                if let Some(piece_t) = board.at(index_t as usize) {
+                    // and its color is different from the piece on the origin square,
                     if piece_o.color() != piece_t.color() {
+                        // add the move (capture) and skip to the next direction.
                         moves.push(Move::from_indices(index_o, index_t as usize));
+                        // break;
                     }
                 } else {
-                    // If the square is empty, the move is always possible without taking
+                    // If the target square is empty, the move is always possible without taking
                     // into account pins or checks.
                     moves.push(Move::from_indices(index_o, index_t as usize));
                 }
             }
+            println!("---");
         }
     }
 }
 
-impl<'a> MoveGen for MoveGenerator<'a> {
+impl MoveGen for Naive {
     /// Generates pseudolegal moves for the current board position.
-    fn generate_moves(&self) -> Vec<Move> {
+    fn generate_moves(&self, board: &Board) -> Vec<Move> {
         let mut moves: Vec<Move> = Vec::new();
+        // println!("{}", self.squares_to_edge);
+        // return moves;
 
-        for (index, square) in self.board.iter().enumerate() {
+        for (index, square) in board.iter().enumerate() {
             if let Some(piece) = square {
-                if piece.color() == self.board.color_to_move {
+                if piece.color() == board.color_to_move {
                     if piece.is_slider() {
-                        self.generate_sliding_moves(index, piece, &mut moves);
+                        println!("{index}");
+                        self.generate_sliding_moves(board, index, piece, &mut moves);
                     } else {
                         match piece {
                             Piece::Pawn(_) => {},

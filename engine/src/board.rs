@@ -25,7 +25,7 @@ pub struct Board {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Square {
-    pub index: u32,
+    pub index: u8,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -58,9 +58,9 @@ impl Square {
     /// The choosen board representation maps "a1" to the square with index 0 and "h8"
     /// to the one with index 63.
     pub fn from_notation(text: &str) -> Result<Self> {
-        let mut cs = text.chars();
-        if let Some(letter) = cs.next() {
-            let col: u32 = match letter {
+        let mut characters = text.chars();
+        if let Some(letter) = characters.next() {
+            let col: u8 = match letter {
                 'a' | 'A' => 0,
                 'b' | 'B' => 1,
                 'c' | 'C' => 2,
@@ -76,9 +76,9 @@ impl Square {
                     ))
                 }
             };
-            if let Some(digit) = cs.next() {
-                let row: u32 = match digit.to_digit(10) {
-                    Some(x) if 1 <= x && x <= 8 => x - 1,
+            if let Some(digit) = characters.next() {
+                let row: u8 = match digit.to_digit(10) {
+                    Some(x) if 1 <= x && x <= 8 => x as u8 - 1,
                     _ => {
                         return Err(format!(
                             "Unknown rank coordinate '{}'. Expected 1, 2, 3, 4, 5, 6, 7 or 8",
@@ -97,14 +97,14 @@ impl Square {
 
     /// Returns the row index (rank) of the square.
     #[inline]
-    pub fn get_rank(&self) -> u32 {
-        self.index / 8
+    pub fn get_rank(&self) -> usize {
+        (self.index / 8).into()
     }
 
     /// Returns the column index (file) of the square.
     #[inline]
-    pub fn get_file(&self) -> u32 {
-        self.index % 8
+    pub fn get_file(&self) -> usize {
+        (self.index % 8).into()
     }
 }
 
@@ -132,12 +132,13 @@ impl Move {
     /// This function does not check wether the indices are within bounds of the board,
     /// so you could end up with an impossible move.
     pub fn from_indices(origin: usize, target: usize) -> Self {
+        // TODO: Perhaps force `origin` and `target` to be u8 too.
         Self {
             origin: Square {
-                index: origin as u32,
+                index: origin.try_into().unwrap(),
             },
             target: Square {
-                index: target as u32,
+                index: target.try_into().unwrap(),
             },
         }
     }
@@ -241,13 +242,13 @@ impl Board {
 
     /// Returns the bitboard for `piece`.
     ///
-    /// These bitboards contain informaton of the position of each piece in the board.
+    /// These bitboards contain informaton of the position of each piece on the board.
     #[inline]
     pub fn get_bitboard(&self, piece: Piece) -> u64 {
         self.piece_bitboards[Self::bitboard_index(piece)]
     }
 
-    pub fn from_array(
+    pub(crate) fn from_array(
         squares: [Option<Piece>; 64],
         castling_rights: CastleRights,
         color_to_move: Color,
@@ -302,6 +303,8 @@ impl Board {
     }
 
     pub fn at(&self, index: usize) -> Option<Piece> {
+        assert!(index < 64, "Board index {index} is out of bounds!");
+
         // if index > 63 {
         //     None
         // } else {
@@ -311,15 +314,9 @@ impl Board {
         // self.piece_bitboards
         //     .iter()
         //     .find(|&bitboard| bitboard & (1 << index) > 0)
-        //     .and_then(|piece| Some(piece))
+        //     .and_then(|piece| Some(piece));
 
         let mask = 1 << index;
-
-        // if mask & self.get_bitboard(Piece::Queen(Color::White)) > 0 {
-        //     return Some(Piece::Queen(Color::White));
-        // } else {
-        //     return None;
-        // }
 
         if mask & self.get_bitboard(Piece::Pawn(Color::White)) > 0 {
             Some(Piece::Pawn(Color::White))
@@ -420,6 +417,9 @@ impl Board {
         }
     }
 
+    /// Returns an iterator over the squares of the board.
+    ///
+    /// The iterator yields all squares ([`Option<Piece>`](crate::piece::Piece)) from 'a1' to 'h8'.
     pub fn iter(&self) -> BoardIter<'_> {
         BoardIter {
             board: self,
@@ -461,7 +461,7 @@ impl Add<(i32, i32)> for Square {
 
     fn add(self, rhs: (i32, i32)) -> Self::Output {
         Self {
-            index: self.index + (rhs.0 + rhs.1 * 8) as u32,
+            index: self.index + (rhs.0 + rhs.1 * 8) as u8,
         }
     }
 }
@@ -477,6 +477,7 @@ fn square_struct() {
     assert!(Square::from_notation("a1").is_ok());
     assert!(Square::from_notation("h8").is_ok());
     assert!(Square::from_notation("u9").is_err());
+    assert!(Square::from_notation("b0").is_err());
 }
 
 #[test]
