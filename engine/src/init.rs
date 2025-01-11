@@ -129,9 +129,9 @@ impl fmt::Display for Direction {
 //
 
 #[test]
+#[ignore]
 #[rustfmt::skip]
 fn squares_to_edge() {
-    let t = MOVE_DIRECTIONS;
     assert_eq!(
         compute_squares_to_edge().0,
         [

@@ -1,14 +1,16 @@
 use crate::graphics::Graphics;
 use crate::ui::Board;
 use bevy::{
-    prelude::*,
     math::{vec2, vec3},
+    prelude::*,
 };
 use engine::piece;
 
 #[derive(Component)]
 pub struct Piece {
+    /// Determines the position of the piece on the board.
     pub index: usize,
+    pub backend: piece::Piece,
 }
 
 pub fn spawn_pieces(
@@ -25,17 +27,19 @@ pub fn spawn_pieces(
 
     for rank in 0..8 {
         for file in 0..8 {
-            if let Some(piece_type) = board.bitboard.at(rank * 8 + file) {
-                info!("At index {} found {:?}", rank * 8 + file, piece_type);
+            let index = rank * 8 + file;
+            if let Some(piece_type) = board.bitboard.at(index) {
+                info!("At index {} found {:?}", index, piece_type);
                 piece_ids.push(
                     commands
                         .spawn((
                             Piece {
-                                index: rank * 8 + file,
+                                index,
+                                backend: piece_type,
                             },
                             SpriteSheetBundle {
                                 sprite: Sprite {
-                                    custom_size: Some(board.size / 8.0),
+                                    custom_size: Some(square_size),
                                     ..default()
                                 },
                                 transform: Transform {
@@ -51,29 +55,29 @@ pub fn spawn_pieces(
                                 atlas: TextureAtlas {
                                     layout: layout.clone(),
                                     index: match piece_type {
-                                        piece::Piece::Pawn(color) => match color {
-                                            piece::Color::White => 5,
-                                            piece::Color::Black => 11,
-                                        },
-                                        piece::Piece::Knight(color) => match color {
-                                            piece::Color::White => 3,
-                                            piece::Color::Black => 9,
-                                        },
-                                        piece::Piece::Bishop(color) => match color {
-                                            piece::Color::White => 2,
-                                            piece::Color::Black => 8,
-                                        },
-                                        piece::Piece::Rook(color) => match color {
-                                            piece::Color::White => 4,
-                                            piece::Color::Black => 10,
+                                        piece::Piece::King(color) => match color {
+                                            piece::Color::White => 0,
+                                            piece::Color::Black => 6,
                                         },
                                         piece::Piece::Queen(color) => match color {
                                             piece::Color::White => 1,
                                             piece::Color::Black => 7,
                                         },
-                                        piece::Piece::King(color) => match color {
-                                            piece::Color::White => 0,
-                                            piece::Color::Black => 6,
+                                        piece::Piece::Bishop(color) => match color {
+                                            piece::Color::White => 2,
+                                            piece::Color::Black => 8,
+                                        },
+                                        piece::Piece::Knight(color) => match color {
+                                            piece::Color::White => 3,
+                                            piece::Color::Black => 9,
+                                        },
+                                        piece::Piece::Rook(color) => match color {
+                                            piece::Color::White => 4,
+                                            piece::Color::Black => 10,
+                                        },
+                                        piece::Piece::Pawn(color) => match color {
+                                            piece::Color::White => 5,
+                                            piece::Color::Black => 11,
                                         },
                                     },
                                 },

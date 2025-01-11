@@ -2,8 +2,10 @@ use crate::graphics::Graphics;
 use bevy::{
     math::{vec2, vec3},
     prelude::*,
+    sprite::MaterialMesh2dBundle,
 };
-use engine::board;
+
+type Bitboard = engine::board::Board;
 
 pub const BOARD_SIZE: f32 = 640.0;
 
@@ -13,31 +15,12 @@ pub struct Board {
     pub center: Vec2,
     pub size: Vec2,
     // internal representation
-    pub bitboard: board::Board,
+    pub bitboard: Bitboard,
 }
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct Square {
     pub index: usize,
-    // tint: Tint,
-}
-
-pub enum Tint {
-    None,
-    Red,
-    Blue,
-    Green,
-}
-
-impl Tint {
-    pub fn value(self) -> Color {
-        match self {
-            Tint::None => Color::WHITE,
-            Tint::Red => Color::RED,
-            Tint::Blue => Color::BLUE,
-            Tint::Green => Color::GREEN,
-        }
-    }
 }
 
 impl Board {
@@ -66,7 +49,12 @@ impl Board {
     }
 }
 
-pub fn spawn_board(mut commands: Commands, graphics: Res<Graphics>) {
+pub fn spawn_board(
+    mut commands: Commands,
+    graphics: Res<Graphics>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+) {
     let (light_squares_color, dark_squares_color) = graphics.board_theme;
 
     let square_size = Vec2::splat(BOARD_SIZE / 8.0);
@@ -78,7 +66,7 @@ pub fn spawn_board(mut commands: Commands, graphics: Res<Graphics>) {
             Board {
                 center: board_center,
                 size: board_size,
-                bitboard: board::Board::new(),
+                bitboard: Bitboard::new(),
             },
             SpatialBundle {
                 transform: Transform::from_xyz(board_center.x, board_center.y, 0.0),
@@ -92,6 +80,14 @@ pub fn spawn_board(mut commands: Commands, graphics: Res<Graphics>) {
     // the same no matter the board position.
     let first_square = Vec2::ZERO - (board_size - square_size) / 2.0;
     let mut square_ids = [Entity::from_raw(0); 64];
+
+    const FREE_SQUARE: Circle = Circle { radius: 50.0 };
+    const CAPTURE: Rectangle = Rectangle {
+        half_size: Vec2::splat(5.0),
+    };
+
+    let mesh = FREE_SQUARE.mesh().build();
+    let material: Handle<ColorMaterial> = materials.add(Color::SEA_GREEN);
 
     for rank in 0..8 {
         for file in 0..8 {
@@ -125,6 +121,21 @@ pub fn spawn_board(mut commands: Commands, graphics: Res<Graphics>) {
         }
     }
 
-    // Construct parent/child hierarchy
+    MaterialMesh2dBundle {
+        mesh: meshes.add(mesh.clone()).into(),
+        material: material.clone(),
+        transform: Transform {
+            translation: vec3(first_square.x, first_square.y, 0.0)
+                + vec3(
+                    square_size.x * file as f32,
+                    square_size.y * rank as f32,
+                    0.0,
+                ),
+            ..default()
+        },
+        ..default()
+    },
+
+    // Construct parent-child hierarchy
     commands.entity(board_id).push_children(&square_ids[..]);
 }

@@ -1,3 +1,6 @@
+mod graphics;
+mod ui;
+
 use crate::graphics::*;
 use crate::ui::*;
 use bevy::{
@@ -11,13 +14,11 @@ use engine::{
     parser, piece,
 };
 
-mod graphics;
-mod ui;
-
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::rgb(0.1, 0.1, 0.1)))
         .add_plugins((
+            // Bevy plugins
             DefaultPlugins
                 .set(ImagePlugin::default_linear())
                 .set(WindowPlugin {
@@ -31,57 +32,67 @@ fn main() {
                     ..default()
                 })
                 .build(),
-            asset_loading_plugin,
+            // Custom plugins
+            GraphicsPlugin,
         ))
+        .init_resource::<CursorWorldCoords>()
+        .init_resource::<GrabToolState>()
         .insert_resource(MoveGenerator {
             generator: generator::Naive::new(),
         })
-        .init_resource::<CursorWorldCoords>()
-        .init_resource::<GrabToolState>()
         .add_event::<PieceGrabbedEvent>()
         .add_event::<PieceDroppedEvent>()
         .add_systems(
             Startup,
             (
-                spawn_camera,
+                setup_camera,
                 ui::spawn_board,
                 ui::spawn_pieces.after(ui::spawn_board),
+                // ui::spawn_indicators.after(ui::spawn_pieces),
             ),
         )
         .add_systems(
             Update,
             (
-                cursor_position_system,
+                update_cursor_world_position,
                 board_action_detection_system,
                 grab_event_listener::<generator::Naive>,
                 drop_event_listener,
                 follow_cursor,
-                color_occupied_squares,
+                // color_occupied_squares,
             ),
         )
         .run();
 }
 
+// #[derive(States)]
+// pub enum GameState {
+//     InGame,
+//     GameOver,
+// }
+
+/// Resets the squares' color to the board theme.
+fn clear_squares_color() {}
+
 fn board_action_detection_system(
     mouse: Res<ButtonInput<MouseButton>>,
     cursor_position: Res<CursorWorldCoords>,
+    grab_tool: Res<GrabToolState>,
     mut evw_piece_grab: EventWriter<PieceGrabbedEvent>,
     mut evw_piece_dropped: EventWriter<PieceDroppedEvent>,
     qy_board: Query<&Board>,
 ) {
     let board = qy_board.single();
 
-    // Grab/select piece
+    // Grab/select piece/square
     if mouse.just_pressed(MouseButton::Left) {
         //info!("Left mouse just pressed at position {}", cursor_position.0,);
         if let Some(index) = board.index_at(cursor_position.0) {
             info!("Clicked square with index {}", index);
             if let Some(piece) = board.bitboard.at(index) {
-                if piece.color() == board.bitboard.color_to_move() {
-                    evw_piece_grab.send(PieceGrabbedEvent { board_index: index });
-                } else {
-                    // TODO: Maybe a capture if a piece was selected
-                }
+                evw_piece_grab.send(PieceGrabbedEvent { board_index: index });
+            } else {
+                // TODO: Square selected event.
             }
         }
     }
@@ -89,9 +100,11 @@ fn board_action_detection_system(
     // Drop grabbed piece
     if mouse.just_released(MouseButton::Left) {
         //info!("Left mouse just released at position {}", cursor_position.0);
-        evw_piece_dropped.send(PieceDroppedEvent {
-            board_index: board.index_at(cursor_position.0),
-        });
+        if let Some(_) = grab_tool.dragged_piece_id {
+            evw_piece_dropped.send(PieceDroppedEvent {
+                board_index: board.index_at(cursor_position.0),
+            });
+        }
     }
 
     // Cancel selection or grabbing action
@@ -148,18 +161,25 @@ fn drop_event_listener(
                         *transform = grab_tool.dragged_piece_orig_transform;
                     }
                 } else {
+                    grab_tool.selected_piece_id = None;
                     warn!("No entity with 'Piece' component and id {:?}", piece_id_o);
                 }
             } else if let Ok((_, _, mut transform)) = qy_piece.get_mut(piece_id_o) {
-                // Piece was dropped out of bounds of the board so we go back to
-                // the original square and clear the currently selected piece.
+                // Piece was dropped out of bounds of the board or the action was cancelled,
+                // so we go back to the original square and clear the currently selected piece.
                 grab_tool.selected_piece_id = None;
                 *transform = grab_tool.dragged_piece_orig_transform;
             } else {
+                grab_tool.selected_piece_id = None;
                 warn!("No entity with 'Piece' component and id {:?}", piece_id_o);
             }
+            // Reset grab tool state.
             grab_tool.dragged_piece_id = None;
             qy_window.single_mut().cursor.icon = CursorIcon::Default;
+            // Clear board indicators if a piece is not selected.
+            if grab_tool.selected_piece_id.is_none() {
+
+            }
         }
     }
 }
@@ -169,30 +189,41 @@ fn grab_event_listener<G>(
     mut evr_piece_grab: EventReader<PieceGrabbedEvent>,
     mut qy_piece: Query<(Entity, &mut Transform, &Piece)>,
     mut qy_window: Query<&mut Window, With<PrimaryWindow>>,
-    mut qy_squares: Query<(&Square, &mut Sprite)>,
-    qy_board: Query<&Board>,
+    mut qy_squares: Query<&mut Sprite, With<Square>>,
+    qy_board: Query<(&Board, &Children)>,
     move_gen: Res<MoveGenerator<G>>,
 ) where
     G: MoveGen + std::marker::Send + std::marker::Sync,
 {
     for ev in evr_piece_grab.read() {
-        info!("{:?}", ev);
+        debug!("{:?}", ev);
         for (entity, mut transform, piece) in qy_piece.iter_mut() {
             if piece.index == ev.board_index {
-                grab_tool.selected_piece_id = Some(entity);
-                grab_tool.dragged_piece_id = Some(entity);
-                grab_tool.dragged_piece_orig_transform = *transform;
-                transform.scale = Vec3::splat(1.2);
-                let mut window = qy_window.single_mut();
-                window.cursor.icon = CursorIcon::Grabbing;
-                // Color valid target squares for the grabbed piece.
-                let board = qy_board.single();
-                let moves = move_gen.generator.generate_moves(&board.bitboard);
-                info!("{:?}", moves);
-                // let moves = board.bitboard.compute_legal_moves_for(piece.index);
-                // for (square, mut sprite) in qy_squares.iter_mut() {
+                let (board, children) = qy_board.single();
+                if piece.backend.color() == board.bitboard.color_to_move() {
+                    grab_tool.selected_piece_id = Some(entity);
+                    grab_tool.dragged_piece_id = Some(entity);
+                    grab_tool.dragged_piece_orig_transform = *transform;
+                    transform.scale = Vec3::splat(1.2);
+                    let mut window = qy_window.single_mut();
+                    window.cursor.icon = CursorIcon::Grabbing;
+                    // Color valid target squares for the selected/grabbed piece.
+                    // NOTE: The first 64 children of Board entity are the squares and
+                    // they preserve the order of insertion.
+                    let mut squares_ids = children.iter().take(64).collect::<Vec<_>>();
 
-                // }
+                    let moves = move_gen.generator.generate_moves(&board.bitboard);
+                    let target_indices = generator::extract_target_indices(&moves, piece.index);
+
+                    for index_t in target_indices {
+                        if let Ok(mut square_sprite) = qy_squares.get_mut(*squares_ids[index_t]) {
+                            square_sprite.color = Color::SEA_GREEN;
+                        }
+                    }
+                } else {
+                    grab_tool.selected_piece_id = Some(entity);
+                    // TODO: Maybe a capture.
+                }
             }
         }
     }
@@ -275,7 +306,7 @@ fn color_occupied_squares(
     }
 }
 
-fn spawn_camera(mut commands: Commands, qy_window: Query<&Window, With<PrimaryWindow>>) {
+fn setup_camera(mut commands: Commands, qy_window: Query<&Window, With<PrimaryWindow>>) {
     let window = qy_window.single();
     let _ar = window.height() / window.width();
 
@@ -285,7 +316,7 @@ fn spawn_camera(mut commands: Commands, qy_window: Query<&Window, With<PrimaryWi
     });
 }
 
-fn cursor_position_system(
+fn update_cursor_world_position(
     mut cursor_world_coords: ResMut<CursorWorldCoords>,
     qy_window: Query<&Window, With<PrimaryWindow>>,
     qy_camera: Query<(&Camera, &GlobalTransform)>,

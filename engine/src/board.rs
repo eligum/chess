@@ -361,7 +361,7 @@ impl Board {
         todo!()
     }
 
-    /// Applies a move and returns `true` if the move updated the state of the board.
+    /// Tries to apply a move and returns `true` if the move changed the state of the board.
     #[rustfmt::skip]
     pub fn make_move(&mut self, mov: Move) -> bool {
         if mov.origin == mov.target {

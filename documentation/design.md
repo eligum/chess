@@ -1,4 +1,4 @@
-# ![White king](assets/wK.png) Chess Engine & GUI
+# ![](assets/wK.png) Chess Engine & GUI
 
 ## Introduction
 
@@ -14,7 +14,7 @@ This section describes how the different UI element interact and behave while pl
 
 While a player is on their turn, they can chose how to move their pieces in two different ways.
 
-- Dragging
+- Drag and drop
 - Point and click
 
 Although the methods are different, the piece UI elements share the same states activated through different actions. The states and how the board behaves depending on the currently active state can be described as follows.
@@ -36,5 +36,5 @@ Todo.
 
 |                     | Grab   | Drop     | Left click | Right click |
 | ------------------- | :----- | :------- | :--------- | :---------- |
-| **Dragging**        | select | unselect | -          | -           |
+| **Drag and drop**   | select | unselect | -          | -           |
 | **Point and click** | -      | -        | select     | unselect    |

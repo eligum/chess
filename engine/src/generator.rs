@@ -36,14 +36,14 @@ impl Naive {
         };
 
         for &direction in directions {
-            println!("{direction:?}");
+            // println!("{direction:?}");
             for n in 1..=(self.squares_to_edge[index_o][direction]) {
                 let index_t = index_o as i32 + direction.offset() * n as i32;
-                println!("\t---");
-                println!("\tOrigin: {index_o}");
-                println!("\tN: {n}");
-                println!("\tOffset: {}", direction.offset());
-                println!("\tTarget: {index_t}");
+                // println!("\t---");
+                // println!("\tOrigin: {index_o}");
+                // println!("\tN: {n}");
+                // println!("\tOffset: {}", direction.offset());
+                // println!("\tTarget: {index_t}");
                 // If there is a piece on the target square...
                 if let Some(piece_t) = board.at(index_t as usize) {
                     // and its color is different from the piece on the origin square,
@@ -58,7 +58,7 @@ impl Naive {
                     moves.push(Move::from_indices(index_o, index_t as usize));
                 }
             }
-            println!("---");
+            // println!("---");
         }
     }
 }
@@ -67,8 +67,6 @@ impl MoveGen for Naive {
     /// Generates pseudolegal moves for the current board position.
     fn generate_moves(&self, board: &Board) -> Vec<Move> {
         let mut moves: Vec<Move> = Vec::new();
-        // println!("{}", self.squares_to_edge);
-        // return moves;
 
         for (index, square) in board.iter().enumerate() {
             if let Some(piece) = square {
@@ -90,4 +88,18 @@ impl MoveGen for Naive {
 
         moves
     }
+}
+
+pub fn extract_target_indices(moves: &[Move], origin_index: usize) -> Vec<usize> {
+    moves
+        .iter()
+        .copied()
+        .filter_map(|mov| {
+            if mov.origin.index as usize == origin_index {
+                Some(mov.target.index.into())
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<usize>>()
 }
