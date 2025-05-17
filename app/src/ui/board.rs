@@ -1,9 +1,5 @@
 use crate::graphics::Graphics;
-use bevy::{
-    math::{vec2, vec3},
-    prelude::*,
-    sprite::MaterialMesh2dBundle,
-};
+use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 
 type Bitboard = engine::board::Board;
 
@@ -20,6 +16,11 @@ pub struct Board {
 
 #[derive(Component, Debug)]
 pub struct Square {
+    pub index: usize,
+}
+
+#[derive(Component, Debug)]
+pub struct Indicator {
     pub index: usize,
 }
 
@@ -45,7 +46,7 @@ impl Board {
         let rank = index / 8;
         let square_size = self.size / 8.0;
         let first_square = Vec2::ZERO - (self.size - square_size) / 2.0;
-        first_square + vec2(square_size.x * file as f32, square_size.y * rank as f32)
+        first_square + Vec2::new(square_size.x * file as f32, square_size.y * rank as f32)
     }
 }
 
@@ -55,11 +56,9 @@ pub fn spawn_board(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    let (light_squares_color, dark_squares_color) = graphics.board_theme;
-
     let square_size = Vec2::splat(BOARD_SIZE / 8.0);
     let board_size = Vec2::splat(BOARD_SIZE);
-    let board_center = vec2(0.0, 0.0);
+    let board_center = Vec2::new(0.0, 0.0);
 
     let board_id = commands
         .spawn((
@@ -80,29 +79,25 @@ pub fn spawn_board(
     // the same no matter the board position.
     let first_square = Vec2::ZERO - (board_size - square_size) / 2.0;
     let mut square_ids = [Entity::from_raw(0); 64];
+    let mut indicator_ids = [Entity::from_raw(0); 64];
 
-    const FREE_SQUARE: Circle = Circle { radius: 50.0 };
-    const CAPTURE: Rectangle = Rectangle {
-        half_size: Vec2::splat(5.0),
-    };
-
-    let mesh = FREE_SQUARE.mesh().build();
-    let material: Handle<ColorMaterial> = materials.add(Color::SEA_GREEN);
+    let (light_squares_color, dark_squares_color) = graphics.board_theme;
+    let (circle_mesh, square_mesh, indicator_color) = &graphics.indicator_theme;
 
     for rank in 0..8 {
         for file in 0..8 {
             let index = rank * 8 + file;
+            // Spawn board square
             square_ids[index] = commands
                 .spawn((
                     Square { index },
                     SpriteBundle {
                         transform: Transform {
-                            translation: vec3(first_square.x, first_square.y, 0.0)
-                                + vec3(
-                                    square_size.x * file as f32,
-                                    square_size.y * rank as f32,
-                                    0.0,
-                                ),
+                            translation: Vec3::new(
+                                first_square.x + square_size.x * file as f32,
+                                first_square.y + square_size.y * rank as f32,
+                                0.0,
+                            ),
                             ..default()
                         },
                         sprite: Sprite {
@@ -118,24 +113,32 @@ pub fn spawn_board(
                     },
                 ))
                 .id();
+            // Spawn move indicator
+            indicator_ids[index] = commands
+                .spawn((
+                    Indicator { index },
+                    MaterialMesh2dBundle {
+                        mesh: circle_mesh.clone().into(),
+                        material: indicator_color.clone(),
+                        visibility: Visibility::Visible,
+                        transform: Transform {
+                            translation: Vec3::new(
+                                first_square.x + square_size.x * file as f32,
+                                first_square.y + square_size.y * rank as f32,
+                                0.1,
+                            ),
+                            ..default()
+                        },
+                        ..default()
+                    },
+                ))
+                .id();
         }
     }
 
-    MaterialMesh2dBundle {
-        mesh: meshes.add(mesh.clone()).into(),
-        material: material.clone(),
-        transform: Transform {
-            translation: vec3(first_square.x, first_square.y, 0.0)
-                + vec3(
-                    square_size.x * file as f32,
-                    square_size.y * rank as f32,
-                    0.0,
-                ),
-            ..default()
-        },
-        ..default()
-    },
-
     // Construct parent-child hierarchy
-    commands.entity(board_id).push_children(&square_ids[..]);
+    commands
+        .entity(board_id)
+        .push_children(&square_ids)
+        .push_children(&indicator_ids);
 }
