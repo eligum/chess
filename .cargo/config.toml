@@ -28,14 +28,11 @@ rustflags = [
 ]
 
 [target.x86_64-pc-windows-msvc]
-linker = "lld"          # Use LLD Linker
+# If cross-compiling form linux, checkout https://bevy-cheatbook.github.io/setup/cross/linux-windows.html#first-time-setup-msvc
+linker = "lld-link" # Use LLD Linker
 rustflags = [
   # "-Zshare-generics=n", # (Nightly)
   # "-Zthreads=0",        # (Nightly) Use improved multithreading with the recommended amount of threads.
-  # Checkout https://bevy-cheatbook.github.io/setup/cross/linux-windows.html#first-time-setup-msvc
-  # "-Lnative=/home/miguel/.xwin/crt/lib/x86_64",
-  # "-Lnative=/home/miguel/.xwin/sdk/lib/um/x86_64",
-  # "-Lnative=/home/miguel/.xwin/sdk/lib/ucrt/x86_64"
 ]
 
 # Optional: Uncommenting the following improves compile times, but reduces the amount of debug info to 'line number tables only'

@@ -4,9 +4,10 @@ mod ui;
 use crate::graphics::*;
 use crate::ui::*;
 use bevy::{
+    camera::{Camera, Camera2d},
     math::{vec2, vec3},
     prelude::*,
-    window::{PresentMode, PrimaryWindow},
+    window::{CursorIcon, PresentMode, PrimaryWindow, SystemCursorIcon},
 };
 use engine::{
     board::{self, Move},
@@ -16,7 +17,7 @@ use engine::{
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::rgb(0.1, 0.1, 0.1)))
+        .insert_resource(ClearColor(Color::srgb(0.1, 0.1, 0.1)))
         .add_plugins((
             // Bevy plugins
             DefaultPlugins
@@ -24,7 +25,7 @@ fn main() {
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "Chess engine".into(),
-                        resolution: (800.0, 800.0).into(),
+                        resolution: (800, 800).into(),
                         resizable: false,
                         present_mode: PresentMode::AutoNoVsync,
                         ..default()
@@ -40,8 +41,8 @@ fn main() {
         .insert_resource(MoveGenerator {
             generator: generator::Naive::new(),
         })
-        .add_event::<PieceGrabbedEvent>()
-        .add_event::<PieceDroppedEvent>()
+        .add_message::<PieceGrabbedEvent>()
+        .add_message::<PieceDroppedEvent>()
         .add_systems(
             Startup,
             (
@@ -78,11 +79,14 @@ fn board_action_detection_system(
     mouse: Res<ButtonInput<MouseButton>>,
     cursor_position: Res<CursorWorldCoords>,
     grab_tool: Res<GrabToolState>,
-    mut evw_piece_grab: EventWriter<PieceGrabbedEvent>,
-    mut evw_piece_dropped: EventWriter<PieceDroppedEvent>,
+    mut mw_piece_grab: MessageWriter<PieceGrabbedEvent>,
+    mut mw_piece_dropped: MessageWriter<PieceDroppedEvent>,
     qy_board: Query<&Board>,
 ) {
-    let board = qy_board.single();
+    let Ok(board) = qy_board.single() else {
+        error!("Expected exactly one board, but found no board or more than one!");
+        return;
+    };
 
     // Grab/select piece/square
     if mouse.just_pressed(MouseButton::Left) {
@@ -90,7 +94,7 @@ fn board_action_detection_system(
         if let Some(index) = board.index_at(cursor_position.0) {
             info!("Clicked square with index {}", index);
             if let Some(piece) = board.bitboard.at(index) {
-                evw_piece_grab.send(PieceGrabbedEvent { board_index: index });
+                mw_piece_grab.write(PieceGrabbedEvent { board_index: index });
             } else {
                 // TODO: Square selected event.
             }
@@ -101,7 +105,7 @@ fn board_action_detection_system(
     if mouse.just_released(MouseButton::Left) {
         //info!("Left mouse just released at position {}", cursor_position.0);
         if let Some(_) = grab_tool.dragged_piece_id {
-            evw_piece_dropped.send(PieceDroppedEvent {
+            mw_piece_dropped.write(PieceDroppedEvent {
                 board_index: board.index_at(cursor_position.0),
             });
         }
@@ -109,19 +113,19 @@ fn board_action_detection_system(
 
     // Cancel selection or grabbing action
     if mouse.just_pressed(MouseButton::Right) {
-        evw_piece_dropped.send(PieceDroppedEvent { board_index: None });
+        mw_piece_dropped.write(PieceDroppedEvent { board_index: None });
     }
 }
 
 fn drop_event_listener(
     mut commands: Commands,
     mut grab_tool: ResMut<GrabToolState>,
-    mut evr_piece_drop: EventReader<PieceDroppedEvent>,
+    mut mr_piece_drop: MessageReader<PieceDroppedEvent>,
     mut qy_piece: Query<(Entity, &mut Piece, &mut Transform)>,
-    mut qy_window: Query<&mut Window, With<PrimaryWindow>>,
     mut qy_board: Query<&mut Board>,
+    qy_window: Single<Entity, With<PrimaryWindow>>,
 ) {
-    for ev in evr_piece_drop.read() {
+    for ev in mr_piece_drop.read() {
         info!("{:?}", ev);
         // Check if a piece is being grabbed.
         if let Some(piece_id_o) = grab_tool.dragged_piece_id {
@@ -133,7 +137,10 @@ fn drop_event_listener(
                     .map(|(id, _, _)| id);
                 // Get components of the piece at the origin square.
                 if let Ok((_, mut piece, mut transform)) = qy_piece.get_mut(piece_id_o) {
-                    let mut board = qy_board.single_mut();
+                    let Ok(mut board) = qy_board.single_mut() else {
+                        error!("No board found!");
+                        return;
+                    };
                     let index_o = piece.index;
                     // Whether the move can be successfully applied or not, as long as the
                     // origin and target squares are different, we clear the selected piece.
@@ -175,22 +182,23 @@ fn drop_event_listener(
             }
             // Reset grab tool state.
             grab_tool.dragged_piece_id = None;
-            qy_window.single_mut().cursor.icon = CursorIcon::Default;
+            commands
+                .entity(*qy_window)
+                .insert(CursorIcon::System(SystemCursorIcon::Default));
             // Clear board indicators if a piece is not selected.
-            if grab_tool.selected_piece_id.is_none() {
-
-            }
+            if grab_tool.selected_piece_id.is_none() {}
         }
     }
 }
 
 fn grab_event_listener<G>(
+    mut commands: Commands,
     mut grab_tool: ResMut<GrabToolState>,
-    mut evr_piece_grab: EventReader<PieceGrabbedEvent>,
+    mut evr_piece_grab: MessageReader<PieceGrabbedEvent>,
     mut qy_piece: Query<(Entity, &mut Transform, &Piece)>,
-    mut qy_window: Query<&mut Window, With<PrimaryWindow>>,
     mut qy_squares: Query<&mut Sprite, With<Square>>,
     qy_board: Query<(&Board, &Children)>,
+    qy_window: Single<Entity, With<PrimaryWindow>>,
     move_gen: Res<MoveGenerator<G>>,
 ) where
     G: MoveGen + std::marker::Send + std::marker::Sync,
@@ -199,14 +207,19 @@ fn grab_event_listener<G>(
         debug!("{:?}", ev);
         for (entity, mut transform, piece) in qy_piece.iter_mut() {
             if piece.index == ev.board_index {
-                let (board, children) = qy_board.single();
+                let Ok((board, children)) = qy_board.single() else {
+                    error!("Expected exactly one board, but found no board or more than one!");
+                    return;
+                };
                 if piece.backend.color() == board.bitboard.color_to_move() {
                     grab_tool.selected_piece_id = Some(entity);
                     grab_tool.dragged_piece_id = Some(entity);
                     grab_tool.dragged_piece_orig_transform = *transform;
                     transform.scale = Vec3::splat(1.2);
-                    let mut window = qy_window.single_mut();
-                    window.cursor.icon = CursorIcon::Grabbing;
+                    commands
+                        .entity(*qy_window)
+                        .insert(CursorIcon::System(SystemCursorIcon::Grabbing));
+
                     // Color valid target squares for the selected/grabbed piece.
                     // NOTE: The first 64 children of Board entity are the squares and
                     // they preserve the order of insertion.
@@ -216,8 +229,8 @@ fn grab_event_listener<G>(
                     let target_indices = generator::extract_target_indices(&moves, piece.index);
 
                     for index_t in target_indices {
-                        if let Ok(mut square_sprite) = qy_squares.get_mut(*squares_ids[index_t]) {
-                            square_sprite.color = Color::SEA_GREEN;
+                        if let Ok(mut square_sprite) = qy_squares.get_mut(squares_ids[index_t]) {
+                            square_sprite.color = Color::WHITE;
                         }
                     }
                 } else {
@@ -237,19 +250,22 @@ fn follow_cursor(
 ) {
     if let Some(piece_entity) = grab_tool.dragged_piece_id {
         if let Ok(mut transform) = qy_piece.get_mut(piece_entity) {
-            let board_transform = qy_board.single();
-            let cursor = vec3(cursor_world_coords.0.x, cursor_world_coords.0.y, 0.2);
+            let Ok(board_transform) = qy_board.single() else {
+                error!("Expected exactly one board, but found no board or more than one!");
+                return;
+            };
+            let cursor = Vec3::new(cursor_world_coords.0.x, cursor_world_coords.0.y, 0.2);
             transform.translation = cursor - board_transform.translation();
         }
     }
 }
 
-#[derive(Event, Debug)]
+#[derive(Message, Debug)]
 pub struct PieceGrabbedEvent {
     pub board_index: usize,
 }
 
-#[derive(Event, Default, Debug)]
+#[derive(Message, Default, Debug)]
 pub struct PieceDroppedEvent {
     pub board_index: Option<usize>,
 }
@@ -286,15 +302,17 @@ fn color_occupied_squares(
 ) {
     let (light_color, dark_color) = graphics.board_theme;
     let tint = vec3(0.3, 0.3, 2.0);
-    let board = qy_board.single();
+    let Ok(board) = qy_board.single() else {
+        return;
+    };
     for (square, mut sprite) in qy_squares.iter_mut() {
         let file = square.index % 8;
         let rank = square.index / 8;
         if let Some(_) = board.bitboard.at(square.index) {
             if (file + rank) % 2 == 0 {
-                sprite.color = dark_color * tint;
+                // sprite.color = dark_color * tint;
             } else {
-                sprite.color = light_color * tint;
+                // sprite.color = light_color * tint;
             }
         } else {
             if (file + rank) % 2 == 0 {
@@ -307,13 +325,16 @@ fn color_occupied_squares(
 }
 
 fn setup_camera(mut commands: Commands, qy_window: Query<&Window, With<PrimaryWindow>>) {
-    let window = qy_window.single();
+    let Ok(window) = qy_window.single() else {
+        return;
+    };
     let _ar = window.height() / window.width();
 
-    commands.spawn(Camera2dBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 1.0), // Camera z = 1.0 to see sprites at z = 0.0
-        ..default()
-    });
+    commands.spawn((
+        Camera2d,
+        Camera::default(),
+        Transform::from_xyz(0.0, 0.0, 1.0), // Camera z = 1.0 to see sprites at z = 0.0
+    ));
 }
 
 fn update_cursor_world_position(
@@ -321,12 +342,16 @@ fn update_cursor_world_position(
     qy_window: Query<&Window, With<PrimaryWindow>>,
     qy_camera: Query<(&Camera, &GlobalTransform)>,
 ) {
-    let (camera, camera_transform) = qy_camera.single();
-    let window = qy_window.single();
+    let Ok((camera, camera_transform)) = qy_camera.single() else {
+        return;
+    };
+    let Ok(window) = qy_window.single() else {
+        return;
+    };
 
     if let Some(world_coords) = window
         .cursor_position()
-        .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor))
+        .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok())
     {
         cursor_world_coords.0 = world_coords;
     }

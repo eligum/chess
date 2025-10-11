@@ -1,5 +1,5 @@
 use crate::graphics::Graphics;
-use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
+use bevy::{prelude::*};
 
 type Bitboard = engine::board::Board;
 
@@ -67,10 +67,11 @@ pub fn spawn_board(
                 size: board_size,
                 bitboard: Bitboard::new(),
             },
-            SpatialBundle {
-                transform: Transform::from_xyz(board_center.x, board_center.y, 0.0),
-                ..default()
-            },
+            Transform::from_xyz(board_center.x, board_center.y, 0.0),
+            // SpatialBundle {
+            //     transform: Transform::from_xyz(board_center.x, board_center.y, 0.0),
+            //     ..default()
+            // },
         ))
         .id();
 
@@ -78,8 +79,8 @@ pub fn spawn_board(
     // hierarchy board squares are children of a board entity, their transform remains
     // the same no matter the board position.
     let first_square = Vec2::ZERO - (board_size - square_size) / 2.0;
-    let mut square_ids = [Entity::from_raw(0); 64];
-    let mut indicator_ids = [Entity::from_raw(0); 64];
+    let mut square_ids = [Entity::from_raw_u32(0).unwrap(); 64];
+    let mut indicator_ids = [Entity::from_raw_u32(0).unwrap(); 64];
 
     let (light_squares_color, dark_squares_color) = graphics.board_theme;
     let (circle_mesh, square_mesh, indicator_color) = &graphics.indicator_theme;
@@ -91,54 +92,51 @@ pub fn spawn_board(
             square_ids[index] = commands
                 .spawn((
                     Square { index },
-                    SpriteBundle {
-                        transform: Transform {
-                            translation: Vec3::new(
-                                first_square.x + square_size.x * file as f32,
-                                first_square.y + square_size.y * rank as f32,
-                                0.0,
-                            ),
-                            ..default()
+                    Sprite {
+                        color: if (rank + file) % 2 == 0 {
+                            dark_squares_color
+                        } else {
+                            light_squares_color
                         },
-                        sprite: Sprite {
-                            color: if (rank + file) % 2 == 0 {
-                                dark_squares_color
-                            } else {
-                                light_squares_color
-                            },
-                            custom_size: Some(square_size),
-                            ..default()
-                        },
+                        custom_size: Some(square_size),
+                        ..default()
+                    },
+                    Transform {
+                        translation: Vec3::new(
+                            first_square.x + square_size.x * file as f32,
+                            first_square.y + square_size.y * rank as f32,
+                            0.0,
+                        ),
                         ..default()
                     },
                 ))
                 .id();
             // Spawn move indicator
-            indicator_ids[index] = commands
-                .spawn((
-                    Indicator { index },
-                    MaterialMesh2dBundle {
-                        mesh: circle_mesh.clone().into(),
-                        material: indicator_color.clone(),
-                        visibility: Visibility::Visible,
-                        transform: Transform {
-                            translation: Vec3::new(
-                                first_square.x + square_size.x * file as f32,
-                                first_square.y + square_size.y * rank as f32,
-                                0.1,
-                            ),
-                            ..default()
-                        },
-                        ..default()
-                    },
-                ))
-                .id();
+            // indicator_ids[index] = commands
+            //     .spawn((
+            //         Indicator { index },
+            //         MaterialMesh2dBundle {
+            //             mesh: circle_mesh.clone().into(),
+            //             material: indicator_color.clone(),
+            //             visibility: Visibility::Visible,
+            //             transform: Transform {
+            //                 translation: Vec3::new(
+            //                     first_square.x + square_size.x * file as f32,
+            //                     first_square.y + square_size.y * rank as f32,
+            //                     0.1,
+            //                 ),
+            //                 ..default()
+            //             },
+            //             ..default()
+            //         },
+            //     ))
+            //     .id();
         }
     }
 
     // Construct parent-child hierarchy
     commands
         .entity(board_id)
-        .push_children(&square_ids)
-        .push_children(&indicator_ids);
+        .add_children(&square_ids);
+        // .push_children(&indicator_ids);
 }

@@ -1,9 +1,6 @@
 use crate::graphics::Graphics;
 use crate::ui::Board;
-use bevy::{
-    math::{vec2, vec3},
-    prelude::*,
-};
+use bevy::prelude::*;
 use engine::piece;
 
 #[derive(Component)]
@@ -19,7 +16,10 @@ pub fn spawn_pieces(
     qy_board: Query<(Entity, &Board)>,
 ) {
     let (ref texture, ref layout) = graphics.piece_theme;
-    let (board_id, board) = qy_board.single();
+    let Ok((board_id, board)) = qy_board.single() else {
+        error!("Expected exactly one board, but found no board or more than one!");
+        return;
+    };
 
     let square_size = board.size / 8.0;
     let first_square = Vec2::ZERO - (board.size - square_size) / 2.0;
@@ -37,22 +37,20 @@ pub fn spawn_pieces(
                                 index,
                                 backend: piece_type,
                             },
-                            SpriteSheetBundle {
-                                sprite: Sprite {
-                                    custom_size: Some(square_size),
-                                    ..default()
-                                },
-                                transform: Transform {
-                                    translation: vec3(first_square.x, first_square.y, 0.0)
-                                        + vec3(
-                                            square_size.x * file as f32,
-                                            square_size.y * rank as f32,
-                                            0.0,
-                                        ),
-                                    ..default()
-                                },
-                                texture: texture.clone(),
-                                atlas: TextureAtlas {
+                            Visibility::Visible,
+                            Transform {
+                                translation: Vec3::new(first_square.x, first_square.y, 0.0)
+                                    + Vec3::new(
+                                        square_size.x * file as f32,
+                                        square_size.y * rank as f32,
+                                        0.1,
+                                    ),
+                                ..default()
+                            },
+                            Sprite {
+                                custom_size: Some(square_size),
+                                image: texture.clone(),
+                                texture_atlas: Some(TextureAtlas {
                                     layout: layout.clone(),
                                     index: match piece_type {
                                         piece::Piece::King(color) => match color {
@@ -80,7 +78,7 @@ pub fn spawn_pieces(
                                             piece::Color::Black => 11,
                                         },
                                     },
-                                },
+                                }),
                                 ..default()
                             },
                         ))
@@ -90,5 +88,5 @@ pub fn spawn_pieces(
         }
     }
 
-    commands.entity(board_id).push_children(&piece_ids[..]);
+    commands.entity(board_id).add_children(&piece_ids);
 }

@@ -25,23 +25,24 @@ fn load_graphics(
     // Piece assets
     let texture_handle = asset_server.load("app/image/pieces_320x107.png");
     let layout_handle = texture_atlas_layouts.add(TextureAtlasLayout::from_grid(
-        Vec2::splat(106.5),
+        UVec2::splat(106),
         6,
         2,
         None,
-        None,
+        Some(UVec2::splat(0)),
     ));
     // Board assets
-    let ligth_squares_color = Color::hex("#f0d9b5").unwrap();
-    let dark_squares_color = Color::hex("#b58863").unwrap();
+    let ligth_squares_color = Color::srgb_u8(240, 217, 181);
+    let dark_squares_color = Color::srgb_u8(181, 136, 99);
     // Indicator assets
     let circle_mesh_handle = meshes.add(Circle { radius: 5.0 });
     let rectangle_mesh_handle = meshes.add(Rectangle {
         half_size: Vec2::splat(5.0),
     });
     let material_handle = materials.add(ColorMaterial {
-        color: Color::SEA_GREEN,
+        color: Color::srgb_u8(46, 139, 87),
         texture: None,
+        ..default()
     });
 
     commands.insert_resource(Graphics {
