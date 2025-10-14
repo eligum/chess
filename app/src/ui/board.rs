@@ -1,5 +1,5 @@
 use crate::graphics::Graphics;
-use bevy::{prelude::*};
+use bevy::prelude::*;
 
 type Bitboard = engine::board::Board;
 
@@ -112,31 +112,28 @@ pub fn spawn_board(
                 ))
                 .id();
             // Spawn move indicator
-            // indicator_ids[index] = commands
-            //     .spawn((
-            //         Indicator { index },
-            //         MaterialMesh2dBundle {
-            //             mesh: circle_mesh.clone().into(),
-            //             material: indicator_color.clone(),
-            //             visibility: Visibility::Visible,
-            //             transform: Transform {
-            //                 translation: Vec3::new(
-            //                     first_square.x + square_size.x * file as f32,
-            //                     first_square.y + square_size.y * rank as f32,
-            //                     0.1,
-            //                 ),
-            //                 ..default()
-            //             },
-            //             ..default()
-            //         },
-            //     ))
-            //     .id();
+            indicator_ids[index] = commands
+                .spawn((
+                    Indicator { index },
+                    Visibility::Visible,
+                    Transform {
+                        translation: Vec3::new(
+                            first_square.x + square_size.x * file as f32,
+                            first_square.y + square_size.y * rank as f32,
+                            0.2,
+                        ),
+                        ..default()
+                    },
+                    Mesh2d(circle_mesh.clone()),
+                    MeshMaterial2d(indicator_color.clone()),
+                ))
+                .id();
         }
     }
 
     // Construct parent-child hierarchy
     commands
         .entity(board_id)
-        .add_children(&square_ids);
-        // .push_children(&indicator_ids);
+        .add_children(&square_ids)
+        .add_children(&indicator_ids);
 }

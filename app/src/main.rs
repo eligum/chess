@@ -3,10 +3,9 @@ mod ui;
 
 use crate::graphics::*;
 use crate::ui::*;
+use bevy::prelude::*;
 use bevy::{
     camera::{Camera, Camera2d},
-    math::{vec2, vec3},
-    prelude::*,
     window::{CursorIcon, PresentMode, PrimaryWindow, SystemCursorIcon},
 };
 use engine::{
@@ -16,33 +15,36 @@ use engine::{
 };
 
 fn main() {
-    App::new()
-        .insert_resource(ClearColor(Color::srgb(0.1, 0.1, 0.1)))
-        .add_plugins((
-            // Bevy plugins
-            DefaultPlugins
-                .set(ImagePlugin::default_linear())
-                .set(WindowPlugin {
-                    primary_window: Some(Window {
-                        title: "Chess engine".into(),
-                        resolution: (800, 800).into(),
-                        resizable: false,
-                        present_mode: PresentMode::AutoNoVsync,
-                        ..default()
-                    }),
+    let mut application = App::new();
+    application.add_plugins((
+        // Bevy plugins
+        DefaultPlugins
+            .set(ImagePlugin::default_linear())
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Chess engine".into(),
+                    resolution: (800, 800).into(),
+                    resizable: false,
+                    present_mode: PresentMode::AutoNoVsync,
                     ..default()
-                })
-                .build(),
-            // Custom plugins
-            GraphicsPlugin,
-        ))
+                }),
+                ..default()
+            })
+            .build(),
+        // Custom plugins
+        GraphicsPlugin,
+    ));
+    application
+        .insert_resource(ClearColor(Color::srgb(0.1, 0.1, 0.1)))
         .init_resource::<CursorWorldCoords>()
         .init_resource::<GrabToolState>()
         .insert_resource(MoveGenerator {
             generator: generator::Naive::new(),
-        })
+        });
+    application
         .add_message::<PieceGrabbedEvent>()
-        .add_message::<PieceDroppedEvent>()
+        .add_message::<PieceDroppedEvent>();
+    application
         .add_systems(
             Startup,
             (
@@ -62,8 +64,8 @@ fn main() {
                 follow_cursor,
                 // color_occupied_squares,
             ),
-        )
-        .run();
+        );
+    application.run();
 }
 
 // #[derive(States)]
@@ -301,7 +303,7 @@ fn color_occupied_squares(
     mut qy_squares: Query<(&Square, &mut Sprite)>,
 ) {
     let (light_color, dark_color) = graphics.board_theme;
-    let tint = vec3(0.3, 0.3, 2.0);
+    let tint = Vec3::new(0.3, 0.3, 2.0);
     let Ok(board) = qy_board.single() else {
         return;
     };

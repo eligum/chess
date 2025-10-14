@@ -42,7 +42,7 @@ impl Piece {
 }
 
 impl fmt::Display for Piece {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Piece::Pawn(color) => match color {
                 Color::White => write!(f, "P"),

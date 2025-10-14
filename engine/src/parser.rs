@@ -9,7 +9,7 @@ pub const STARTING_POSITION_FEN: &'static str =
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 /// Parses a string in [FEN](https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation)
-/// and returns a new instance of `bitboard::Board` that represents the position if the notation is valid.
+/// and returns a new instance of [`Board`] that represents the position if the notation is valid.
 pub fn load_position_from_fen(fen: &str) -> Result<Board, String> {
     let mut file: usize = 0;
     let mut rank: usize = 7;
