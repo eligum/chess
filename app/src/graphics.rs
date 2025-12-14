@@ -29,7 +29,7 @@ fn load_graphics(
         6,
         2,
         None,
-        Some(UVec2::splat(0)),
+        Some(UVec2::new(0, 0)),
     ));
     // Board assets
     let ligth_squares_color = Color::srgb_u8(240, 217, 181);

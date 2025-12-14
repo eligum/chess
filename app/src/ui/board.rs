@@ -11,7 +11,7 @@ pub struct Board {
     pub center: Vec2,
     pub size: Vec2,
     // internal representation
-    pub bitboard: Bitboard,
+    pub backend: Bitboard,
 }
 
 #[derive(Component, Debug)]
@@ -30,7 +30,7 @@ impl Board {
     pub fn index_at(&self, position: Vec2) -> Option<usize> {
         let p_min = self.center - self.size / 2.0;
         let p_norm = position - p_min;
-        if p_norm.x >= 0.0 && p_norm.x < self.size.x && p_norm.y > 0.0 && p_norm.y < self.size.y {
+        if p_norm.x >= 0.0 && p_norm.x < self.size.x && p_norm.y >= 0.0 && p_norm.y < self.size.y {
             let file = (p_norm.x / self.size.x * 8.0) as usize;
             let rank = (p_norm.y / self.size.y * 8.0) as usize;
             Some(rank * 8 + file)
@@ -65,7 +65,7 @@ pub fn spawn_board(
             Board {
                 center: board_center,
                 size: board_size,
-                bitboard: Bitboard::new(),
+                backend: Bitboard::new(),
             },
             Transform::from_xyz(board_center.x, board_center.y, 0.0),
             // SpatialBundle {
@@ -83,7 +83,7 @@ pub fn spawn_board(
     let mut indicator_ids = [Entity::from_raw_u32(0).unwrap(); 64];
 
     let (light_squares_color, dark_squares_color) = graphics.board_theme;
-    let (circle_mesh, square_mesh, indicator_color) = &graphics.indicator_theme;
+    let (circle_mesh, _square_mesh, indicator_color) = &graphics.indicator_theme;
 
     for rank in 0..8 {
         for file in 0..8 {
@@ -137,3 +137,5 @@ pub fn spawn_board(
         .add_children(&square_ids)
         .add_children(&indicator_ids);
 }
+
+pub fn indicator_hover_animation() {}

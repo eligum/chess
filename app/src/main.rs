@@ -95,7 +95,7 @@ fn board_action_detection_system(
         //info!("Left mouse just pressed at position {}", cursor_position.0,);
         if let Some(index) = board.index_at(cursor_position.0) {
             info!("Clicked square with index {}", index);
-            if let Some(piece) = board.bitboard.at(index) {
+            if let Some(piece) = board.backend.at(index) {
                 mw_piece_grab.write(PieceGrabbedEvent { board_index: index });
             } else {
                 // TODO: Square selected event.
@@ -151,7 +151,7 @@ fn drop_event_listener(
                     }
                     // TODO: Check if move is legal.
                     if board
-                        .bitboard
+                        .backend
                         .make_move(Move::from_indices(index_o, index_t))
                     {
                         let coords = board.position_at(index_t);
@@ -213,7 +213,7 @@ fn grab_event_listener<G>(
                     error!("Expected exactly one board, but found no board or more than one!");
                     return;
                 };
-                if piece.backend.color() == board.bitboard.color_to_move() {
+                if piece.backend.color() == board.backend.color_to_move() {
                     grab_tool.selected_piece_id = Some(entity);
                     grab_tool.dragged_piece_id = Some(entity);
                     grab_tool.dragged_piece_orig_transform = *transform;
@@ -225,9 +225,9 @@ fn grab_event_listener<G>(
                     // Color valid target squares for the selected/grabbed piece.
                     // NOTE: The first 64 children of Board entity are the squares and
                     // they preserve the order of insertion.
-                    let mut squares_ids = children.iter().take(64).collect::<Vec<_>>();
+                    let mut squares_ids: Vec<Entity> = children.iter().take(64).collect();
 
-                    let moves = move_gen.generator.generate_moves(&board.bitboard);
+                    let moves = move_gen.generator.generate_moves(&board.backend);
                     let target_indices = generator::extract_target_indices(&moves, piece.index);
 
                     for index_t in target_indices {
@@ -310,7 +310,7 @@ fn color_occupied_squares(
     for (square, mut sprite) in qy_squares.iter_mut() {
         let file = square.index % 8;
         let rank = square.index / 8;
-        if let Some(_) = board.bitboard.at(square.index) {
+        if let Some(_) = board.backend.at(square.index) {
             if (file + rank) % 2 == 0 {
                 // sprite.color = dark_color * tint;
             } else {

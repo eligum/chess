@@ -76,9 +76,9 @@ impl MoveGen for Naive {
                         self.generate_sliding_moves(board, index, piece, &mut moves);
                     } else {
                         match piece {
-                            Piece::Pawn(_) => {},
-                            Piece::Knight(_) => {},
-                            Piece::King(_) => {},
+                            Piece::Pawn(_) => {}
+                            Piece::Knight(_) => {}
+                            Piece::King(_) => {}
                             _ => unreachable!(),
                         }
                     }
@@ -93,7 +93,6 @@ impl MoveGen for Naive {
 pub fn extract_target_indices(moves: &[Move], origin_index: usize) -> Vec<usize> {
     moves
         .iter()
-        .copied()
         .filter_map(|mov| {
             if mov.origin.index as usize == origin_index {
                 Some(mov.target.index.into())
@@ -101,5 +100,5 @@ pub fn extract_target_indices(moves: &[Move], origin_index: usize) -> Vec<usize>
                 None
             }
         })
-        .collect::<Vec<usize>>()
+        .collect()
 }

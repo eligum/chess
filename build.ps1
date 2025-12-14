@@ -15,13 +15,15 @@ if ($LASTEXITCODE -eq 0) {
         Write-Host "Copied '$binName.exe' to project root." -ForegroundColor Green
 
 		# Prompt user if they want to run the executable
-        $response = Read-Host "Do you want to run '$binName.exe' now? (y/n)"
-        if ($response -match '^(y|yes)$') {
-            Write-Host "Running '$binName.exe'..." -ForegroundColor Cyan
-            Start-Process "./$binName.exe" -Wait
-        } else {
-            Write-Host "Skipping execution." -ForegroundColor Green
-        }
+        Start-Process "./$binName.exe" -Wait
+
+        # $response = Read-Host "Do you want to run '$binName.exe' now? (y/n)"
+        # if ($response -match '^(y|yes)$') {
+        #     Write-Host "Running '$binName.exe'..." -ForegroundColor Cyan
+        #     Start-Process "./$binName.exe" -Wait
+        # } else {
+        #     Write-Host "Skipping execution." -ForegroundColor Green
+        # }
     } else {
         Write-Host "Could not find compiled executable: $targetExe" -ForegroundColor Red
     }

@@ -28,7 +28,7 @@ pub fn spawn_pieces(
     for rank in 0..8 {
         for file in 0..8 {
             let index = rank * 8 + file;
-            if let Some(piece_type) = board.bitboard.at(index) {
+            if let Some(piece_type) = board.backend.at(index) {
                 info!("At index {} found {:?}", index, piece_type);
                 piece_ids.push(
                     commands
