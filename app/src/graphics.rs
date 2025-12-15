@@ -35,7 +35,7 @@ fn load_graphics(
     let ligth_squares_color = Color::srgb_u8(240, 217, 181);
     let dark_squares_color = Color::srgb_u8(181, 136, 99);
     // Indicator assets
-    let circle_mesh_handle = meshes.add(Circle { radius: 5.0 });
+    let circle_mesh_handle = meshes.add(Circle { radius: 10.0 });
     let rectangle_mesh_handle = meshes.add(Rectangle {
         half_size: Vec2::splat(5.0),
     });

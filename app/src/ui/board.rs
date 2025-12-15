@@ -58,7 +58,7 @@ pub fn spawn_board(
 ) {
     let square_size = Vec2::splat(BOARD_SIZE / 8.0);
     let board_size = Vec2::splat(BOARD_SIZE);
-    let board_center = Vec2::new(0.0, 0.0);
+    let board_center = Vec2::new(200.0, 0.0);
 
     let board_id = commands
         .spawn((
@@ -137,5 +137,3 @@ pub fn spawn_board(
         .add_children(&square_ids)
         .add_children(&indicator_ids);
 }
-
-pub fn indicator_hover_animation() {}

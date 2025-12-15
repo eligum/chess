@@ -9,7 +9,7 @@ use bevy::{
     window::{CursorIcon, PresentMode, PrimaryWindow, SystemCursorIcon},
 };
 use engine::{
-    board::{self, Move},
+    board::Move,
     generator::{self, MoveGen},
     parser, piece,
 };
@@ -34,10 +34,13 @@ fn main() {
         // Custom plugins
         GraphicsPlugin,
     ));
+    application.init_state::<BoardActionState>();
     application
         .insert_resource(ClearColor(Color::srgb(0.1, 0.1, 0.1)))
         .init_resource::<CursorWorldCoords>()
         .init_resource::<GrabToolState>()
+        .init_resource::<Settings>()
+        .init_resource::<IndicatorLocations>()
         .insert_resource(MoveGenerator {
             generator: generator::Naive::new(),
         });
@@ -62,20 +65,18 @@ fn main() {
                 grab_event_listener::<generator::Naive>,
                 drop_event_listener,
                 follow_cursor,
-                // color_occupied_squares,
+                legal_moves_indicator_animation.run_if(in_state(BoardActionState::PieceSelected)),
             ),
         );
     application.run();
 }
 
-// #[derive(States)]
-// pub enum GameState {
-//     InGame,
-//     GameOver,
-// }
-
-/// Resets the squares' color to the board theme.
-fn clear_squares_color() {}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
+pub enum BoardActionState {
+    #[default]
+    PieceUnselected,
+    PieceSelected,
+}
 
 fn board_action_detection_system(
     mouse: Res<ButtonInput<MouseButton>>,
@@ -95,7 +96,7 @@ fn board_action_detection_system(
         //info!("Left mouse just pressed at position {}", cursor_position.0,);
         if let Some(index) = board.index_at(cursor_position.0) {
             info!("Clicked square with index {}", index);
-            if let Some(piece) = board.backend.at(index) {
+            if let Some(_) = board.backend.at(index) {
                 mw_piece_grab.write(PieceGrabbedEvent { board_index: index });
             } else {
                 // TODO: Square selected event.
@@ -196,12 +197,14 @@ fn drop_event_listener(
 fn grab_event_listener<G>(
     mut commands: Commands,
     mut grab_tool: ResMut<GrabToolState>,
+    mut next_ba_state: ResMut<NextState<BoardActionState>>,
+    mut indicator_locations: ResMut<IndicatorLocations>,
     mut evr_piece_grab: MessageReader<PieceGrabbedEvent>,
     mut qy_piece: Query<(Entity, &mut Transform, &Piece)>,
-    mut qy_squares: Query<&mut Sprite, With<Square>>,
-    qy_board: Query<(&Board, &Children)>,
+    qy_board: Query<&Board>,
     qy_window: Single<Entity, With<PrimaryWindow>>,
     move_gen: Res<MoveGenerator<G>>,
+    settings: Res<Settings>,
 ) where
     G: MoveGen + std::marker::Send + std::marker::Sync,
 {
@@ -209,7 +212,7 @@ fn grab_event_listener<G>(
         debug!("{:?}", ev);
         for (entity, mut transform, piece) in qy_piece.iter_mut() {
             if piece.index == ev.board_index {
-                let Ok((board, children)) = qy_board.single() else {
+                let Ok(board) = qy_board.single() else {
                     error!("Expected exactly one board, but found no board or more than one!");
                     return;
                 };
@@ -217,27 +220,53 @@ fn grab_event_listener<G>(
                     grab_tool.selected_piece_id = Some(entity);
                     grab_tool.dragged_piece_id = Some(entity);
                     grab_tool.dragged_piece_orig_transform = *transform;
-                    transform.scale = Vec3::splat(1.2);
+                    if settings.magnify_pieces {
+                        transform.scale = Vec3::splat(1.2);
+                    }
                     commands
                         .entity(*qy_window)
                         .insert(CursorIcon::System(SystemCursorIcon::Grabbing));
 
-                    // Color valid target squares for the selected/grabbed piece.
-                    // NOTE: The first 64 children of Board entity are the squares and
-                    // they preserve the order of insertion.
-                    let mut squares_ids: Vec<Entity> = children.iter().take(64).collect();
+                    if settings.show_legal_moves {
+                        // NOTE: The first 64 children of Board entity are the squares and
+                        // they preserve the order of insertion.
+                        let moves = move_gen.generator.generate_moves(&board.backend);
+                        let target_indices = generator::extract_target_indices(&moves, piece.index);
 
-                    let moves = move_gen.generator.generate_moves(&board.backend);
-                    let target_indices = generator::extract_target_indices(&moves, piece.index);
-
-                    for index_t in target_indices {
-                        if let Ok(mut square_sprite) = qy_squares.get_mut(squares_ids[index_t]) {
-                            square_sprite.color = Color::WHITE;
-                        }
+                        indicator_locations.0 = target_indices;
                     }
+                    next_ba_state.set(BoardActionState::PieceSelected);
                 } else {
                     grab_tool.selected_piece_id = Some(entity);
                     // TODO: Maybe a capture.
+                }
+            }
+        }
+    }
+}
+
+fn legal_moves_indicator_animation(
+    cursor_position: Res<CursorWorldCoords>,
+    indicator_locations: Res<IndicatorLocations>,
+    graphics: Res<Graphics>,
+    settings: Res<Settings>,
+    q_board: Query<&Board>,
+    mut q_indicator: Query<(&Indicator, &mut Mesh2d)>,
+) {
+    if settings.show_legal_moves {
+        let Ok(board) = q_board.single() else {
+            error!("Expected exactly one board, but found no board or more than one!");
+            return;
+        };
+        let (ref base_mesh, ref hover_mesh, _) = graphics.indicator_theme;
+        if let Some(hover_index) = board.index_at(cursor_position.0) {
+            for (indicator, mut mesh) in q_indicator.iter_mut() {
+                if indicator_locations.0.contains(&indicator.index) {
+                    if indicator.index == hover_index {
+                        *mesh = Mesh2d(hover_mesh.clone());
+                    } else {
+                        *mesh = Mesh2d(base_mesh.clone());
+                    }
                 }
             }
         }
@@ -262,12 +291,32 @@ fn follow_cursor(
     }
 }
 
+#[derive(Resource, Default)]
+pub struct IndicatorLocations(Vec<usize>);
+
+#[derive(Resource)]
+pub struct Settings {
+    pub show_legal_moves: bool,
+    pub highlight_last_move: bool,
+    pub magnify_pieces: bool,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            show_legal_moves: true,
+            highlight_last_move: false,
+            magnify_pieces: true,
+        }
+    }
+}
+
 #[derive(Message, Debug)]
 pub struct PieceGrabbedEvent {
     pub board_index: usize,
 }
 
-#[derive(Message, Default, Debug)]
+#[derive(Message, Debug)]
 pub struct PieceDroppedEvent {
     pub board_index: Option<usize>,
 }
