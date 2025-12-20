@@ -123,6 +123,7 @@ fn board_action_detection_system(
 fn drop_event_listener(
     mut commands: Commands,
     mut grab_tool: ResMut<GrabToolState>,
+    mut next_ba_state: ResMut<NextState<BoardActionState>>,
     mut mr_piece_drop: MessageReader<PieceDroppedEvent>,
     mut qy_piece: Query<(Entity, &mut Piece, &mut Transform)>,
     mut qy_board: Query<&mut Board>,
@@ -189,7 +190,9 @@ fn drop_event_listener(
                 .entity(*qy_window)
                 .insert(CursorIcon::System(SystemCursorIcon::Default));
             // Clear board indicators if a piece is not selected.
-            if grab_tool.selected_piece_id.is_none() {}
+            if grab_tool.selected_piece_id.is_none() {
+                next_ba_state.set(BoardActionState::PieceUnselected);
+            }
         }
     }
 }
@@ -228,11 +231,8 @@ fn grab_event_listener<G>(
                         .insert(CursorIcon::System(SystemCursorIcon::Grabbing));
 
                     if settings.show_legal_moves {
-                        // NOTE: The first 64 children of Board entity are the squares and
-                        // they preserve the order of insertion.
                         let moves = move_gen.generator.generate_moves(&board.backend);
                         let target_indices = generator::extract_target_indices(&moves, piece.index);
-
                         indicator_locations.0 = target_indices;
                     }
                     next_ba_state.set(BoardActionState::PieceSelected);
@@ -250,23 +250,28 @@ fn legal_moves_indicator_animation(
     indicator_locations: Res<IndicatorLocations>,
     graphics: Res<Graphics>,
     settings: Res<Settings>,
-    q_board: Query<&Board>,
+    q_board: Query<(&Board, &Children)>,
     mut q_indicator: Query<(&Indicator, &mut Mesh2d)>,
 ) {
-    if settings.show_legal_moves {
-        let Ok(board) = q_board.single() else {
-            error!("Expected exactly one board, but found no board or more than one!");
-            return;
-        };
-        let (ref base_mesh, ref hover_mesh, _) = graphics.indicator_theme;
-        if let Some(hover_index) = board.index_at(cursor_position.0) {
-            for (indicator, mut mesh) in q_indicator.iter_mut() {
-                if indicator_locations.0.contains(&indicator.index) {
-                    if indicator.index == hover_index {
-                        *mesh = Mesh2d(hover_mesh.clone());
-                    } else {
-                        *mesh = Mesh2d(base_mesh.clone());
-                    }
+    if !settings.show_legal_moves {
+        return;
+    }
+    let Ok((board, children)) = q_board.single() else {
+        error!("Expected exactly one board, but found no board or more than one!");
+        return;
+    };
+    let Some(hover_index) = board.index_at(cursor_position.0) else {
+        return;
+    };
+    let (base_mesh, hover_mesh, _) = &graphics.indicator_theme;
+
+    for child in children.iter() {
+        if let Ok((indicator, mut mesh)) = q_indicator.get_mut(child) {
+            if indicator_locations.0.contains(&indicator.index) {
+                if indicator.index == hover_index {
+                    *mesh = Mesh2d(hover_mesh.clone());
+                } else {
+                    *mesh = Mesh2d(base_mesh.clone());
                 }
             }
         }
@@ -345,35 +350,6 @@ pub struct MoveGenerator<T: MoveGen + std::marker::Send + std::marker::Sync + 's
 
 #[derive(Resource, Default)]
 struct CursorWorldCoords(Vec2);
-
-fn color_occupied_squares(
-    graphics: Res<Graphics>,
-    qy_board: Query<&Board>,
-    mut qy_squares: Query<(&Square, &mut Sprite)>,
-) {
-    let (light_color, dark_color) = graphics.board_theme;
-    let tint = Vec3::new(0.3, 0.3, 2.0);
-    let Ok(board) = qy_board.single() else {
-        return;
-    };
-    for (square, mut sprite) in qy_squares.iter_mut() {
-        let file = square.index % 8;
-        let rank = square.index / 8;
-        if let Some(_) = board.backend.at(square.index) {
-            if (file + rank) % 2 == 0 {
-                // sprite.color = dark_color * tint;
-            } else {
-                // sprite.color = light_color * tint;
-            }
-        } else {
-            if (file + rank) % 2 == 0 {
-                sprite.color = dark_color;
-            } else {
-                sprite.color = light_color;
-            }
-        }
-    }
-}
 
 fn setup_camera(mut commands: Commands, qy_window: Query<&Window, With<PrimaryWindow>>) {
     let Ok(window) = qy_window.single() else {
