@@ -25,7 +25,7 @@ pub fn load_position_from_fen(fen: &str) -> Result<Board, String> {
             file = 0;
             rank -= 1;
         } else if symbol.is_digit(10) {
-            file += symbol.to_digit(10).expect("Character is a digit") as usize;
+            file += symbol.to_digit(10).ok_or("Character is not a digit [0-9]")? as usize;
         } else {
             let color = if symbol.is_uppercase() {
                 Color::White
