@@ -71,11 +71,11 @@ impl Naive {
         let current_row = index_o / 8;
         let current_col = index_o % 8;
         let mut headstart_row = 1;
-        let mut adv1_offset = 8;
-        let mut adv2_offset = 16;
-        let mut eat_l_offset = 7;
-        let mut eat_r_offset = 9;
-        if piece_color_o.color() == Color::Black {
+        let mut adv1_offset: i32 = 8;
+        let mut adv2_offset: i32 = 16;
+        let mut eat_l_offset: i32 = 7;
+        let mut eat_r_offset: i32 = 9;
+        if piece_color_o == Color::Black {
             headstart_row = 6;
             adv1_offset = -8;
             adv2_offset = -16;
@@ -121,7 +121,7 @@ impl Naive {
         let current_col = index_o % 8;
 
         // north-east
-        if curren_row < 6 && current_col < 7 {
+        if current_row < 6 && current_col < 7 {
             let index_t = index_o + 17;
             if let Some(piece) = board.at(index_t) {
                 if piece.color() != piece_color_o {
@@ -132,7 +132,7 @@ impl Naive {
             }
         }
         // north-west
-        if curren_row < 6 && current_col > 0 {
+        if current_row < 6 && current_col > 0 {
             let index_t = index_o + 15;
             if let Some(piece) = board.at(index_t) {
                 if piece.color() != piece_color_o {
@@ -143,7 +143,7 @@ impl Naive {
             }
         }
         // east-north
-        if curren_row < 7 && current_col < 6 {
+        if current_row < 7 && current_col < 6 {
             let index_t = index_o + 10;
             if let Some(piece) = board.at(index_t) {
                 if piece.color() != piece_color_o {
@@ -154,7 +154,7 @@ impl Naive {
             }
         }
         // east-south
-        if curren_row > 0 && current_col < 6 {
+        if current_row > 0 && current_col < 6 {
             let index_t = index_o - 6;
             if let Some(piece) = board.at(index_t) {
                 if piece.color() != piece_color_o {
@@ -165,7 +165,7 @@ impl Naive {
             }
         }
         // south-east
-        if curren_row > 1 && current_col < 7 {
+        if current_row > 1 && current_col < 7 {
             let index_t = index_o - 15;
             if let Some(piece) = board.at(index_t) {
                 if piece.color() != piece_color_o {
@@ -176,7 +176,7 @@ impl Naive {
             }
         }
         // south-west
-        if curren_row > 1 && current_col > 0 {
+        if current_row > 1 && current_col > 0 {
             let index_t = index_o - 17;
             if let Some(piece) = board.at(index_t) {
                 if piece.color() != piece_color_o {
@@ -187,7 +187,7 @@ impl Naive {
             }
         }
         // west-south
-        if curren_row > 0 && current_col > 1 {
+        if current_row > 0 && current_col > 1 {
             let index_t = index_o - 10;
             if let Some(piece) = board.at(index_t) {
                 if piece.color() != piece_color_o {
@@ -198,7 +198,7 @@ impl Naive {
             }
         }
         // west-north
-        if curren_row < 7 && current_col > 1 {
+        if current_row < 7 && current_col > 1 {
             let index_t = index_o + 6;
             if let Some(piece) = board.at(index_t) {
                 if piece.color() != piece_color_o {
@@ -325,7 +325,7 @@ impl MoveGen for Naive {
                         self.generate_sliding_moves(board, index, piece, &mut moves);
                     } else {
                         match piece {
-                            Piece::Pawn(color) => Self::generate_pawn_moves(board, index, color, &mut moves), 
+                            Piece::Pawn(color) => Self::generate_pawn_moves(board, index, color, &mut moves),
                             Piece::Knight(color) => Self::generate_knight_moves(board, index, color, &mut moves),
                             Piece::King(color) => Self::generate_king_moves(board, index, color, &mut moves),
                             _ => unreachable!(),
