@@ -23,3 +23,11 @@ pub fn only_one(value: u64) -> bool {
 pub fn more_than_one(value: u64) -> bool {
     !at_most_one(value)
 }
+
+/// Flips all bits.
+#[inline(always)]
+pub fn flip(value: u64) -> u64 {
+    // value ^ (1 << 64) - 1 
+    // value ^ u64::MAX
+    !value
+}

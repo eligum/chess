@@ -73,7 +73,7 @@ impl Square {
                     return Err(format!(
                         "Unknown file coordinate '{}'. Expected a, b, c, d, e, f, g or h",
                         letter
-                    ))
+                    ));
                 }
             };
             if let Some(digit) = characters.next() {
@@ -83,7 +83,7 @@ impl Square {
                         return Err(format!(
                             "Unknown rank coordinate '{}'. Expected 1, 2, 3, 4, 5, 6, 7 or 8",
                             digit
-                        ))
+                        ));
                     }
                 };
                 return Ok(Self {
@@ -275,12 +275,22 @@ impl Board {
         &self.squares
     }
 
-    /// Returns the bitboard resulting from the union of all the piece bitboards.
+    /// Returns the occupancy bitboard of all pieces.
     ///
     /// The occupancy refers to the set of all squares occupied by any piece. Thus, the
     /// complement of the occupancy is the set of all empty squares.
     pub fn occupancy(&self) -> u64 {
-        self.piece_bitboards.iter().fold(0, |acc, x| acc | x)
+        self.piece_bitboards.iter().fold(0, |acc, &x| acc | x)
+    }
+
+    /// Returns the occupancy bitboard of the pieces of the specified `color`.
+    ///
+    /// This is a subset of the total [`Self::occupancy`].
+    pub fn occupancy_by_color(&self, color: Color) -> u64 {
+        let start = if color == Color::White { 0 } else { 6 };
+        self.piece_bitboards[start..start + 6]
+            .iter()
+            .fold(0, |acc, &x| acc | x)
     }
 
     /// Checks whether the internal representation of the board is in a valid state.
