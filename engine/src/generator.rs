@@ -70,42 +70,75 @@ impl Naive {
     ) {
         let current_row = index_o / 8;
         let current_col = index_o % 8;
-        let mut headstart_row = 1;
-        let mut adv1_offset: i32 = 8;
-        let mut adv2_offset: i32 = 16;
-        let mut eat_l_offset: i32 = 7;
-        let mut eat_r_offset: i32 = 9;
-        if piece_color_o == Color::Black {
-            headstart_row = 6;
-            adv1_offset = -8;
-            adv2_offset = -16;
-            eat_l_offset = -9;
-            eat_r_offset = -7;
-        }
 
-        if 0 < current_row && current_row < 7 {
-            let index_t = index_o + adv1_offset;
-            if board.at(index_t).is_none() {
-                moves.push(Move::from_indices(index_o, index_t));
-            }
-            if current_row == headstart_row {
-                let index_t = index_o + adv2_offset;
+        if piece_color_o == Color::White {
+            let headstart_row = 1;
+
+            if current_row < 7 {
+                let index_t = index_o + 8;
                 if board.at(index_t).is_none() {
                     moves.push(Move::from_indices(index_o, index_t));
                 }
-            }
-            // Captures
-            // TODO: Check "en passant".
-            if current_col > 0 {
-                let index_t = index_o + eat_l_offset;
-                if board.at(index_t).is_some_and(|p| p.color() != piece_color_o) {
-                    moves.push(Move::from_indices(index_o, index_t));
+                if current_row == headstart_row {
+                    let index_t = index_o + 16;
+                    if board.at(index_t).is_none() {
+                        moves.push(Move::from_indices(index_o, index_t));
+                    }
+                }
+                // Captures
+                // TODO: Check "en passant".
+                if current_col > 0 {
+                    let index_t = index_o + 7;
+                    if board
+                        .at(index_t)
+                        .is_some_and(|p| p.color() != Color::White)
+                    {
+                        moves.push(Move::from_indices(index_o, index_t));
+                    }
+                }
+                if current_col < 7 {
+                    let index_t = index_o + 9;
+                    if board
+                        .at(index_t)
+                        .is_some_and(|p| p.color() != Color::White)
+                    {
+                        moves.push(Move::from_indices(index_o, index_t));
+                    }
                 }
             }
-            if current_col < 7 {
-                let index_t = index_o + eat_r_offset;
-                if board.at(index_t).is_some_and(|p| p.color() != piece_color_o) {
+        } else {
+            let headstart_row = 6;
+
+            if current_row > 0 {
+                let index_t = index_o - 8;
+                if board.at(index_t).is_none() {
                     moves.push(Move::from_indices(index_o, index_t));
+                }
+                if current_row == headstart_row {
+                    let index_t = index_o + 16;
+                    if board.at(index_t).is_none() {
+                        moves.push(Move::from_indices(index_o, index_t));
+                    }
+                }
+                // Captures
+                // TODO: Check "en passant".
+                if current_col > 0 {
+                    let index_t = index_o - 9;
+                    if board
+                        .at(index_t)
+                        .is_some_and(|p| p.color() != Color::White)
+                    {
+                        moves.push(Move::from_indices(index_o, index_t));
+                    }
+                }
+                if current_col < 7 {
+                    let index_t = index_o - 7;
+                    if board
+                        .at(index_t)
+                        .is_some_and(|p| p.color() != Color::White)
+                    {
+                        moves.push(Move::from_indices(index_o, index_t));
+                    }
                 }
             }
         }
@@ -325,9 +358,15 @@ impl MoveGen for Naive {
                         self.generate_sliding_moves(board, index, piece, &mut moves);
                     } else {
                         match piece {
-                            Piece::Pawn(color) => Self::generate_pawn_moves(board, index, color, &mut moves),
-                            Piece::Knight(color) => Self::generate_knight_moves(board, index, color, &mut moves),
-                            Piece::King(color) => Self::generate_king_moves(board, index, color, &mut moves),
+                            Piece::Pawn(color) => {
+                                Self::generate_pawn_moves(board, index, color, &mut moves)
+                            }
+                            Piece::Knight(color) => {
+                                Self::generate_knight_moves(board, index, color, &mut moves)
+                            }
+                            Piece::King(color) => {
+                                Self::generate_king_moves(board, index, color, &mut moves)
+                            }
                             _ => unreachable!(),
                         };
                     }
