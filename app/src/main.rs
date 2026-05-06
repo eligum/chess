@@ -68,6 +68,7 @@ fn main() {
                 legal_moves_indicator_animation.run_if(in_state(BoardActionState::PieceSelected)),
             ),
         );
+    application.add_systems(OnExit(BoardActionState::PieceSelected), reset_indicators);
     application.run();
 }
 
@@ -275,6 +276,17 @@ fn legal_moves_indicator_animation(
                 }
             }
         }
+    }
+}
+
+fn reset_indicators(
+    mut q_indicator: Query<(&mut Mesh2d, &mut Visibility), With<Indicator>>,
+    graphics: Res<Graphics>,
+) {
+    let (base_mesh, _, _) = &graphics.indicator_theme;
+    for (mut mesh, mut visibility) in q_indicator.iter_mut() {
+        *mesh = Mesh2d(base_mesh.clone());
+        *visibility = Visibility::Hidden;
     }
 }
 
